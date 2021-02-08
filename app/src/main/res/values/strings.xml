@@ -1,16 +1,6 @@
 <resources>
-    <string name="app_name">CSC BLE Bridge</string>
-    <string name="start_service">Start BLE Bridging</string>
-    <string name="stop_service">Stop BLE Bridging</string>
+    <string name="app_name">Biscuit</string>
+    <string name="start_service">Start recording</string>
+    <string name="stop_service">Stop recording</string>
     <string name="no_data">---</string>
-    <string name="current_speed">Current Speed on 700x23C tire (km/h)</string>
-    <string name="speed_sensor">Bike Speed Sensor</string>
-    <string name="cadence_sensor">Bike Cadence Sensor</string>
-    <string name="hr_sensor">HR Sensor</string>
-    <string name="run_sensor">Run Sensor</string>
-    <string name="timestamp">TimeStamp</string>
-    <string name="cadence">Current Cadence (rpm)</string>
-    <string name="heart_rate">Heart rate (bpm)</string>
-    <string name="run_speed">Run Speed (km/h)</string>
-    <string name="run_cadence">Run Cadence (spm)</string>
 </resources>

@@ -21,7 +21,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Binder;
 import android.os.Build;
@@ -48,10 +47,7 @@ import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 public class CSCService extends Service {
@@ -87,7 +83,6 @@ public class CSCService extends Service {
     private int lastWheelEventTime = 0;
     private int lastCrankEventTime = 0;
 
-    // for UI updates
     private long lastSpeedTimestamp = 0;
     private long lastCadenceTimestamp = 0;
     private long lastHRTimestamp = 0;
