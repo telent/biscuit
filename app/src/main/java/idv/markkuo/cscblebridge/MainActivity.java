@@ -225,16 +225,16 @@ public class MainActivity extends AppCompatActivity  {
                 @SuppressLint("DefaultLocale")
                 @Override
                 public void run() {
-                      if(statusBSD != null)
-                          tv_speed.setText(statusBSD);
-                      else
-                          if (speed >= 0.0f)
-                              tv_speed.setText(String.format("%.01f", speed) + " km/h");
+                    if(statusBSD != null)
+                        tv_speed.setText(statusBSD);
+                    else
+                    if (speed >= 0.0f)
+                        tv_speed.setText(String.format("%.01f", speed) + " km/h");
                     if(statusBC != null)
                         tv_speed.setText(statusBC);
                     else
-                        if (cadence >= 0)
-                            tv_cadence.setText(String.format("%3d rpm", cadence));
+                    if (cadence >= 0)
+                        tv_cadence.setText(String.format("%3d rpm", cadence));
                     if (now != null)
                         tv_time.setText(String.format("%2d:%02d:%02d",
                                 now.getHour(), now.getMinute(), now.getSecond()));
