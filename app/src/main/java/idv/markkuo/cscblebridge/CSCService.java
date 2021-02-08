@@ -36,8 +36,6 @@ import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.concurrent.Semaphore;
 
-import static android.app.Notification.EXTRA_NOTIFICATION_ID;
-
 public class CSCService extends Service {
     private static final String TAG = CSCService.class.getSimpleName();
     private static final int ONGOING_NOTIFICATION_ID = 9999;
