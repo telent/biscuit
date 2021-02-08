@@ -53,6 +53,9 @@ captures/
 .idea/modules.xml
 # Comment next line if keeping position of elements in Navigation Editor is relevant for you
 .idea/navEditor.xml
+# no idea if this is really ignorable but Studio seems to keep it updated
+# for me so
+.idea/codeStyles/Project.xml
 
 # Keystore files
 # Uncomment the following lines if you do not want to check your keystore files in.

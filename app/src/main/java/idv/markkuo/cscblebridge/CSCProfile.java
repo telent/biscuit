@@ -201,7 +201,7 @@ public class CSCProfile {
         int wholeNumber = (int) lastSSSpeed;
         byte decimalPlaces = binaryDecimalToByte(lastSSSpeed, wholeNumber);
         data.add(decimalPlaces);
-        data.add((byte) (int) wholeNumber);
+        data.add((byte) wholeNumber);
 
         // Instantanious Cadence, Unit is in 1/minute (or RPM) with a resolutions of 1 1/min (or 1 RPM) (uint8)
         data.add((byte) stridePerMin);
