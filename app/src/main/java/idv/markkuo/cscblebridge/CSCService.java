@@ -10,7 +10,6 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
-import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
@@ -18,7 +17,6 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
-import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -82,12 +80,6 @@ public class CSCService extends Service {
     // m/s to km/h ratio
     private static final BigDecimal msToKmSRatio = new BigDecimal("3.6");
 
-    // bluetooth API
-    private BluetoothManager mBluetoothManager;
-    private BluetoothGattServer mBluetoothGattServer;
-    private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
-    // notification subscribers
-    private Set<BluetoothDevice> mRegisteredDevices = new HashSet<>();
 
     // last wheel and crank (speed/cadence) information to send to CSCProfile
     private long cumulativeWheelRevolution = 0;
@@ -448,34 +440,6 @@ public class CSCService extends Service {
         manager.createNotificationChannel(channel);
     }
 
-    private boolean checkBluetoothSupport(BluetoothAdapter bluetoothAdapter) {
-        if (bluetoothAdapter == null) {
-            Log.w(TAG, "Bluetooth is not supported");
-            return false;
-        }
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            Log.w(TAG, "Bluetooth LE is not supported");
-            return false;
-        }
-        return true;
-    }
-
-    private BroadcastReceiver mBluetoothReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF);
-            switch (state) {
-                case BluetoothAdapter.STATE_ON:
-                    startAdvertising();
-                    startServer();
-                    break;
-                case BluetoothAdapter.STATE_OFF:
-                    stopServer();
-                    stopAdvertising();
-                    break;
-            }
-        }
-    };
 
     @Override
     public void onCreate() {
@@ -485,28 +449,7 @@ public class CSCService extends Service {
         // ANT+
         initAntPlus();
 
-        // Bluetooth LE
-        mBluetoothManager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
-        assert mBluetoothManager != null;
-        BluetoothAdapter bluetoothAdapter = mBluetoothManager.getAdapter();
-        // continue without proper Bluetooth support
-        if (!checkBluetoothSupport(bluetoothAdapter)) {
-            Log.e(TAG, "Bluetooth LE isn't supported. This won't run");
-            stopSelf();
-            return;
-        }
 
-        // Register for system Bluetooth events
-        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        registerReceiver(mBluetoothReceiver, filter);
-        if (!bluetoothAdapter.isEnabled()) {
-            Log.d(TAG, "Bluetooth is currently disabled...enabling");
-            bluetoothAdapter.enable();
-        } else {
-            Log.d(TAG, "Bluetooth enabled...starting services");
-            startAdvertising();
-            startServer();
-        }
         initialised = true;
     }
 
@@ -523,14 +466,6 @@ public class CSCService extends Service {
         Log.d(TAG, "Service destroyed");
         super.onDestroy();
         if (initialised) {
-            // stop BLE
-            BluetoothAdapter bluetoothAdapter = mBluetoothManager.getAdapter();
-            if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
-                stopServer();
-                stopAdvertising();
-            }
-
-            unregisterReceiver(mBluetoothReceiver);
 
             // stop ANT+
             if (bsdReleaseHandle != null)
@@ -550,124 +485,6 @@ public class CSCService extends Service {
     }
 
 
-    /**
-     * Begin advertising over Bluetooth that this device is connectable
-     */
-    private void startAdvertising() {
-        BluetoothAdapter bluetoothAdapter = mBluetoothManager.getAdapter();
-        if (bluetoothAdapter == null) {
-            Log.e(TAG, "Failed to create bluetooth adapter");
-            return;
-        }
-        mBluetoothLeAdvertiser = bluetoothAdapter.getBluetoothLeAdvertiser();
-        if (mBluetoothLeAdvertiser == null) {
-            Log.w(TAG, "Failed to create advertiser");
-            return;
-        }
-
-        AdvertiseSettings settings = new AdvertiseSettings.Builder()
-                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-                .setConnectable(true)
-                .setTimeout(0)
-                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-                .build();
-
-        AdvertiseData advData = new AdvertiseData.Builder()
-                .setIncludeTxPowerLevel(true)
-                .addServiceUuid(new ParcelUuid(CSCProfile.CSC_SERVICE))
-                .addServiceUuid(new ParcelUuid(CSCProfile.HR_SERVICE))
-                .addServiceUuid(new ParcelUuid(CSCProfile.RSC_SERVICE))
-                .build();
-
-        AdvertiseData advScanResponse = new AdvertiseData.Builder()
-                .setIncludeDeviceName(true)
-                .build();
-
-        mBluetoothLeAdvertiser
-                .startAdvertising(settings, advData, advScanResponse, mAdvertiseCallback);
-    }
-
-    /**
-     * Stop Bluetooth advertisements
-     */
-    private void stopAdvertising() {
-        if (mBluetoothLeAdvertiser == null) return;
-
-        mBluetoothLeAdvertiser.stopAdvertising(mAdvertiseCallback);
-    }
-
-    /**
-     * Initialize the GATT server
-     */
-    private void startServer() {
-        mBluetoothGattServer = mBluetoothManager.openGattServer(this, mGattServerCallback);
-        if (mBluetoothGattServer == null) {
-            Log.w(TAG, "Unable to create GATT server");
-            return;
-        }
-
-        btServiceInitialized = false;
-        // TODO: enable either 1 of them or both of them according to user selection
-        if (mBluetoothGattServer.addService(CSCProfile.createCSCService((byte)(CSCProfile.CSC_FEATURE_WHEEL_REV | CSCProfile.CSC_FEATURE_CRANK_REV)))) {
-            Log.d(TAG, "CSCP enabled!");
-        } else {
-            Log.d(TAG, "Failed to add csc service to bluetooth layer!");
-        }
-
-        // We cannot add another service until the callback for the previous service has completed
-        while (!btServiceInitialized);
-
-        btServiceInitialized = false;
-        if (mBluetoothGattServer.addService(CSCProfile.createHRService())) {
-            Log.d(TAG, "HR enabled!");
-        } else {
-            Log.d(TAG, "Failed to add hr service to bluetooth layer!");
-        }
-
-        // We cannot add another service until the callback for the previous service has completed
-        while (!btServiceInitialized);
-
-        if (mBluetoothGattServer.addService(CSCProfile.createRscService())) {
-            Log.d(TAG, "RSC enabled!");
-        } else {
-            Log.d(TAG, "Failed to add rsc service to bluetooth layer");
-        }
-
-        Log.d(TAG, "Enumerating (" +  mBluetoothGattServer.getServices().size() + ") BT services");
-        for (BluetoothGattService b : mBluetoothGattServer.getServices()) {
-            Log.d(TAG,"Services registered: " +  b.getUuid().toString());
-        }
-
-        // start periodicUpdate, sending notification to subscribed device and UI
-        handler.post(periodicUpdate);
-    }
-
-    /**
-     * Shut down the GATT server
-     */
-    private void stopServer() {
-        if (mBluetoothGattServer == null) return;
-
-        // stop periodicUpdate
-        handler.removeCallbacksAndMessages(null);
-        mBluetoothGattServer.close();
-    }
-
-    /**
-     * Callback to receive information about the advertisement process
-     */
-    private AdvertiseCallback mAdvertiseCallback = new AdvertiseCallback() {
-
-        @Override
-        public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-            Log.i(TAG, "LE Advertise Started:" + settingsInEffect);
-        }
-
-        @Override
-        public void onStartFailure(int errorCode) {
-            Log.w(TAG, "LE Advertise Failed: "+errorCode);
-        }
-    };
 
     Handler handler = new Handler();
     private Runnable periodicUpdate = new Runnable () {
@@ -676,8 +493,6 @@ public class CSCService extends Service {
             // scheduled next run in 1 sec
             handler.postDelayed(periodicUpdate, 1000);
 
-            // send to registered BLE devices. It's a no-op if there is no GATT client
-            notifyRegisteredDevices();
 
             // update UI by sending broadcast to our main activity
             Intent i = new Intent("idv.markkuo.cscblebridge.ANTDATA");
@@ -713,201 +528,7 @@ public class CSCService extends Service {
      * Send a CSC service notification to any devices that are subscribed
      * to the characteristic
      */
-    private void notifyRegisteredDevices() {
-        if (mRegisteredDevices.isEmpty()) {
-            Log.v(TAG, "No subscribers registered");
-            return;
-        }
 
-        byte[] data = CSCProfile.getMeasurement(cumulativeWheelRevolution, lastWheelEventTime,
-                                                cumulativeCrankRevolution, lastCrankEventTime);
-
-        Log.v(TAG, "Sending update to " + mRegisteredDevices.size() + " subscribers");
-        for (BluetoothDevice device : mRegisteredDevices) {
-            BluetoothGattService service = mBluetoothGattServer.getService(CSCProfile.CSC_SERVICE);
-            if (service != null) {
-                BluetoothGattCharacteristic measurementCharacteristic = mBluetoothGattServer
-                        .getService(CSCProfile.CSC_SERVICE)
-                        .getCharacteristic(CSCProfile.CSC_MEASUREMENT);
-                if (!measurementCharacteristic.setValue(data)) {
-                    Log.w(TAG, "CSC Measurement data isn't set properly!");
-                }
-                // false is used to send a notification
-                mBluetoothGattServer.notifyCharacteristicChanged(device, measurementCharacteristic, false);
-            } else {
-                Log.v(TAG, "Service " + CSCProfile.CSC_SERVICE + " was not found as an installed service");
-            }
-
-            service = mBluetoothGattServer.getService(CSCProfile.HR_SERVICE);
-            if (service != null) {
-                Log.v(TAG, "Processing Heart Rate");
-
-                BluetoothGattCharacteristic measurementCharacteristic = mBluetoothGattServer
-                        .getService(CSCProfile.HR_SERVICE)
-                        .getCharacteristic(CSCProfile.HR_MEASUREMENT);
-
-                byte[] hrData = CSCProfile.getHR(lastHR, lastHRTimestamp);
-                if (!measurementCharacteristic.setValue(hrData)) {
-                    Log.w(TAG, "HR  Measurement data isn't set properly!");
-                }
-                mBluetoothGattServer.notifyCharacteristicChanged(device, measurementCharacteristic, false);
-            } else {
-                Log.v(TAG, "Service " + CSCProfile.HR_SERVICE + " was not found as an installed service");
-            }
-
-            service = mBluetoothGattServer.getService(CSCProfile.RSC_SERVICE);
-            if (service != null) {
-                Log.v(TAG, "Processing Running Speed and Cadence sensor");
-
-                BluetoothGattCharacteristic measurementCharacteristic = mBluetoothGattServer
-                        .getService(CSCProfile.RSC_SERVICE)
-                        .getCharacteristic(CSCProfile.RSC_MEASUREMENT);
-
-                byte[] rscData = CSCProfile.getRsc(lastSSDistance, lastSSSpeed, lastStridePerMinute);
-                if (!measurementCharacteristic.setValue(rscData)) {
-                    Log.w(TAG, "RSC Measurement data isn't set properly!");
-                }
-                mBluetoothGattServer.notifyCharacteristicChanged(device, measurementCharacteristic, false);
-            } else {
-                Log.v(TAG, "Service " + CSCProfile.RSC_SERVICE + " was not found as an installed service");
-            }
-        }
-    }
-
-    private final BluetoothGattServerCallback mGattServerCallback = new BluetoothGattServerCallback() {
-
-        @Override
-        public void onServiceAdded(int status, BluetoothGattService service) {
-            Log.i(TAG, "onServiceAdded(): status:" + status + ", service:" + service);
-            // Sets up for next service to be added
-            btServiceInitialized = true;
-        }
-
-        @Override
-        public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
-            if (mRegisteredDevices.contains(device)) {
-                if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    Log.i(TAG, "BluetoothDevice DISCONNECTED: " + device.getName() + " [" + device.getAddress() + "]");
-                    //Remove device from any active subscriptions
-                    mRegisteredDevices.remove(device);
-                } else {
-                    Log.i(TAG, "onConnectionStateChange() status:" + status + "->" + newState + ", device" + device);
-                }
-            }
-        }
-
-        @Override
-        public void onNotificationSent(BluetoothDevice device, int status) {
-            Log.v(TAG, "onNotificationSent() result:" + status);
-        }
-
-        @Override
-        public void onMtuChanged(BluetoothDevice device, int mtu) {
-            Log.d(TAG, "onMtuChanged:" + device + " =>" + mtu);
-        }
-
-        @Override
-        public void onCharacteristicReadRequest(BluetoothDevice device, int requestId, int offset,
-                                                BluetoothGattCharacteristic characteristic) {
-            if (CSCProfile.CSC_MEASUREMENT.equals(characteristic.getUuid())) {
-                Log.i(TAG, "Read CSC Measurement");
-                //TODO: this should never happen since this characteristic doesn't support read
-                mBluetoothGattServer.sendResponse(device,
-                        requestId,
-                        BluetoothGatt.GATT_SUCCESS,
-                        0,
-                        null);
-            } else if (CSCProfile.CSC_FEATURE.equals(characteristic.getUuid())) {
-                Log.i(TAG, "Read CSC Feature");
-                mBluetoothGattServer.sendResponse(device,
-                        requestId,
-                        BluetoothGatt.GATT_SUCCESS,
-                        0,
-                        CSCProfile.getFeature());
-            } else if (CSCProfile.RSC_MEASUREMENT.equals(characteristic.getUuid())) {
-                    Log.i(TAG, "READ RSC Measurement");
-                mBluetoothGattServer.sendResponse(device,
-                        requestId,
-                        BluetoothGatt.GATT_SUCCESS,
-                        0,
-                        null);
-            } else if (CSCProfile.RSC_FEATURE.equals(characteristic.getUuid())) {
-                Log.i(TAG, "READ RSC Feature");
-                mBluetoothGattServer.sendResponse(device,
-                        requestId,
-                        BluetoothGatt.GATT_SUCCESS,
-                        0,
-                        CSCProfile.getRscFeature());
-            } else {
-                // Invalid characteristic
-                Log.w(TAG, "Invalid Characteristic Read: " + characteristic.getUuid());
-                mBluetoothGattServer.sendResponse(device,
-                        requestId,
-                        BluetoothGatt.GATT_FAILURE,
-                        0,
-                        null);
-            }
-        }
-
-        @Override
-        public void onDescriptorReadRequest(BluetoothDevice device, int requestId, int offset,
-                                            BluetoothGattDescriptor descriptor) {
-            if (CSCProfile.CLIENT_CONFIG.equals(descriptor.getUuid())) {
-                Log.d(TAG, "Config descriptor read");
-                byte[] returnValue;
-                if (mRegisteredDevices.contains(device)) {
-                    returnValue = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE;
-                } else {
-                    returnValue = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
-                }
-                mBluetoothGattServer.sendResponse(device,
-                        requestId,
-                        BluetoothGatt.GATT_SUCCESS,
-                        offset,
-                        returnValue);
-            } else {
-                Log.w(TAG, "Unknown descriptor read request");
-                mBluetoothGattServer.sendResponse(device,
-                        requestId,
-                        BluetoothGatt.GATT_FAILURE,
-                        offset,
-                        null);
-            }
-        }
-
-        @Override
-        public void onDescriptorWriteRequest(BluetoothDevice device, int requestId,
-                                             BluetoothGattDescriptor descriptor,
-                                             boolean preparedWrite, boolean responseNeeded,
-                                             int offset, byte[] value) {
-            if (CSCProfile.CLIENT_CONFIG.equals(descriptor.getUuid())) {
-                if (Arrays.equals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE, value)) {
-                    Log.d(TAG, "Subscribe device to notifications: " + device);
-                    mRegisteredDevices.add(device);
-                } else if (Arrays.equals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE, value)) {
-                    Log.d(TAG, "Unsubscribe device from notifications: " + device);
-                    mRegisteredDevices.remove(device);
-                }
-
-                if (responseNeeded) {
-                    mBluetoothGattServer.sendResponse(device,
-                            requestId,
-                            BluetoothGatt.GATT_SUCCESS,
-                            0,
-                            null);
-                }
-            } else {
-                Log.w(TAG, "Unknown descriptor write request");
-                if (responseNeeded) {
-                    mBluetoothGattServer.sendResponse(device,
-                            requestId,
-                            BluetoothGatt.GATT_FAILURE,
-                            0,
-                            null);
-                }
-            }
-        }
-    };
 
     /**
      * Initialize searching for all supported sensors
