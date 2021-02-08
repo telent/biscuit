@@ -9,7 +9,7 @@ import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import idv.markkuo.cscblebridge.CSCService.LocalBinder
+import idv.markkuo.cscblebridge.BiscuitService.LocalBinder
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -32,11 +32,11 @@ class MainActivity : AppCompatActivity() {
     private var btn_service: Button? = null
     private var receiver: MainActivityReceiver? = null
     private var mBound = false
-    private var mService: CSCService? = null
+    private var mService: BiscuitService? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val intent = intent
-        val mServiceIntent = Intent(applicationContext, CSCService::class.java)
+        val mServiceIntent = Intent(applicationContext, BiscuitService::class.java)
         setContentView(R.layout.activity_main)
         tv_speed = findViewById(R.id.SpeedText)
         tv_cadence = findViewById(R.id.CadenceText)
@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onResume() {
-        val mServiceIntent = Intent(applicationContext, CSCService::class.java)
+        val mServiceIntent = Intent(applicationContext, BiscuitService::class.java)
         super.onResume()
         ensureServiceRunning(mServiceIntent)
     }
@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
         private get() {
             val manager = (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
             for (service in manager.getRunningServices(Int.MAX_VALUE)) {
-                if (CSCService::class.java.name == service.service.className) {
+                if (BiscuitService::class.java.name == service.service.className) {
                     return true
                 }
             }

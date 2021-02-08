@@ -6,7 +6,6 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Binder
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
 import android.util.Log
 import android.util.Pair
@@ -26,15 +25,13 @@ import com.dsi.ant.plugins.antplus.pcc.defines.RequestAccessResult
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc.IDeviceStateChangeReceiver
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc.IPluginAccessResultReceiver
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle
-import kotlinx.coroutines.runBlocking
-import java.lang.NullPointerException
 import java.lang.Thread.sleep
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.Semaphore
 
-class CSCService : Service() {
+class BiscuitService : Service() {
     // Ant+ sensors
     private var bsdPcc: AntPlusBikeSpeedDistancePcc? = null
     private var bsdReleaseHandle: PccReleaseHandle<AntPlusBikeSpeedDistancePcc>? = null
@@ -314,7 +311,7 @@ class CSCService : Service() {
                 0,
                 Intent(this.applicationContext, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT)
-        val stopServiceIntent = Intent(this, CSCService::class.java)
+        val stopServiceIntent = Intent(this, BiscuitService::class.java)
         stopServiceIntent.putExtra("stop_service", 1)
         val snoozePendingIntent = PendingIntent.getService(
                 this,
@@ -506,12 +503,12 @@ class CSCService : Service() {
      * Get the services for communicating with it
      */
     inner class LocalBinder : Binder() {
-        val service: CSCService
-            get() = this@CSCService
+        val service: BiscuitService
+            get() = this@BiscuitService
     }
 
     companion object {
-        private val TAG = CSCService::class.java.simpleName
+        private val TAG = BiscuitService::class.java.simpleName
         private const val ONGOING_NOTIFICATION_ID = 9999
         private const val CHANNEL_DEFAULT_IMPORTANCE = "csc_ble_channel"
         private const val MAIN_CHANNEL_NAME = "CscService"
