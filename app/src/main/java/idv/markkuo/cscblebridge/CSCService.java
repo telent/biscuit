@@ -14,10 +14,12 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.util.Pair;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
+import androidx.media.app.NotificationCompat.MediaStyle;
 
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc;
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeSpeedDistancePcc;
@@ -30,10 +32,11 @@ import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc;
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.concurrent.Semaphore;
+
+import static android.app.Notification.EXTRA_NOTIFICATION_ID;
 
 public class CSCService extends Service {
     private static final String TAG = CSCService.class.getSimpleName();
@@ -374,43 +377,45 @@ public class CSCService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "Service onStartCommand");
+        Log.d(TAG, "Service onStartCommand" + intent);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             createNotificationChannel(CHANNEL_DEFAULT_IMPORTANCE, MAIN_CHANNEL_NAME);
+        }
+        PendingIntent notifyPendingIntent =
+                PendingIntent.getActivity(
+                        this,
+                        0,
+                        new Intent(this.getApplicationContext(), MainActivity.class),
+                        PendingIntent.FLAG_UPDATE_CURRENT);
 
-            // Create the PendingIntent
-            PendingIntent notifyPendingIntent = PendingIntent.getActivity(
-                    this,
-                    0,
-                    new Intent(this.getApplicationContext(),MainActivity.class),
-                    PendingIntent.FLAG_UPDATE_CURRENT);
+        Intent stopServiceIntent = new Intent(this, CSCService.class);
+        stopServiceIntent.putExtra("stop_service", 1);
+        PendingIntent snoozePendingIntent =
+                PendingIntent.getService(
+                        this,
+                        0,
+                        stopServiceIntent,
+                        0);
 
-            // build a notification
-            Notification notification =
-                    new Notification.Builder(this, CHANNEL_DEFAULT_IMPORTANCE)
-                            .setContentTitle(getText(R.string.app_name))
-                            .setContentText("Active")
-                            .setSmallIcon(R.drawable.ic_notification_icon)
-                            .setAutoCancel(true)
-                            .setContentIntent(notifyPendingIntent)
-                            .setTicker(getText(R.string.app_name))
-                            .build();
-
-            startForeground(ONGOING_NOTIFICATION_ID, notification);
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_DEFAULT_IMPORTANCE)
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText("Active")
+                .setContentIntent(notifyPendingIntent)
+                .setSmallIcon(R.drawable.ic_notification_icon)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .addAction(R.drawable.ic_baseline_stop_24, "STOP SERVICE", snoozePendingIntent)
+                .setAutoCancel(true)
+                .setStyle(new MediaStyle().setShowActionsInCompactView(0))
+                .build();
+        if (intent.hasExtra("stop_service")) {
+            Log.d(TAG, "stopping");
+            Toast.makeText(this, "Stopped recording", 5).show();
+            stopForeground(true);
         } else {
-            Notification notification = new NotificationCompat.Builder(this, CHANNEL_DEFAULT_IMPORTANCE)
-                    .setContentTitle(getString(R.string.app_name))
-                    .setContentText("Active")
-                    .setSmallIcon(R.drawable.ic_notification_icon)
-                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                    .setAutoCancel(true)
-                    .build();
-
             startForeground(ONGOING_NOTIFICATION_ID, notification);
         }
         return Service.START_NOT_STICKY;
     }
-
     @RequiresApi(Build.VERSION_CODES.O)
     private void createNotificationChannel(String channelId, String channelName) {
         NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW);
@@ -420,7 +425,6 @@ public class CSCService extends Service {
         manager.createNotificationChannel(channel);
     }
 
-
     @Override
     public void onCreate() {
         Log.d(TAG, "Service started");
@@ -428,8 +432,6 @@ public class CSCService extends Service {
 
         // ANT+
         initAntPlus();
-
-
         initialised = true;
     }
 
@@ -503,11 +505,6 @@ public class CSCService extends Service {
             sendBroadcast(i);
         }
     };
-
-    /**
-     * Send a CSC service notification to any devices that are subscribed
-     * to the characteristic
-     */
 
 
     /**

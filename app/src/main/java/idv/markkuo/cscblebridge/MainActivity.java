@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -31,7 +32,6 @@ public class MainActivity extends AppCompatActivity  {
             tv_runSensorTimestamp, tv_speed, tv_cadence, tv_hr, tv_runSpeed, tv_runCadence, tv_time;
     private Button btn_service;
 
-    private boolean serviceStarted = false;
     private MainActivityReceiver receiver;
     private boolean mBound = false;
     private CSCService mService;
@@ -39,6 +39,9 @@ public class MainActivity extends AppCompatActivity  {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Intent intent = getIntent();
+        Intent mServiceIntent = new Intent(getApplicationContext(), CSCService.class);
+
         setContentView(R.layout.activity_main);
 
         tv_speed = findViewById(R.id.SpeedText);
@@ -46,48 +49,7 @@ public class MainActivity extends AppCompatActivity  {
         tv_time = findViewById(R.id.TimeText);
         btn_service = findViewById(R.id.ServiceButton);
 
-        if (isServiceRunning()) {
-            Log.w(TAG, "Service already started");
-            serviceStarted = true;
-        }
-
-        btn_service.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent mServiceIntent = new Intent(getApplicationContext(), CSCService.class);
-                if (!serviceStarted) {
-                    Log.d(TAG, "Starting Service");
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                        MainActivity.this.startForegroundService(mServiceIntent);
-                    else
-                        MainActivity.this.startService(mServiceIntent);
-
-                    // Bind to the service so we can interact with it
-                    if (!bindService(mServiceIntent, connection, Context.BIND_AUTO_CREATE)) {
-                        Log.d(TAG, "Failed to bind to service");
-                    } else {
-                        mBound = true;
-                    }
-                }
-                else {
-                    Log.d(TAG, "Stopping Service");
-                    unbindService();
-                    MainActivity.this.stopService(mServiceIntent);
-                }
-
-                serviceStarted = !serviceStarted;
-                updateButtonState();
-            }
-        });
-
-//        // Bind to the Sensor title and install a long click listener to restart searching for Speed sensor
-//        findViewById(R.id.SpeedSensorText).setOnLongClickListener(createLongClickListener(() -> mService.startSpeedSensorSearch()));
-//
-//        // Bind to the Sensor title and install a long click listener to restart searching for Cadence sensor
-//        findViewById(R.id.CadenceSensorText).setOnLongClickListener(createLongClickListener(() -> mService.startCadenceSensorSearch()));
-//
-//        // Bind to the Sensor title and install a long click listener to restart searching for HR sensor
-//        findViewById(R.id.HRSensorText).setOnLongClickListener(createLongClickListener(() -> mService.startHRSensorSearch()));
+        ensureServiceRunning(mServiceIntent);
 
         receiver = new MainActivityReceiver();
         // register intent from our service
@@ -96,40 +58,31 @@ public class MainActivity extends AppCompatActivity  {
         registerReceiver(receiver, filter);
     }
 
-    // Allows for lambdas on the long click handler to reduce code duplication.
-    // TODO: Investigate to see if there is an existing interface we can use
-    interface DoAction {
-        void action();
-    }
+    private void ensureServiceRunning(Intent mServiceIntent) {
+        if(mBound) {
+            Log.d(TAG, "Service already started");
+        } else {
+            Log.d(TAG, "Starting Service");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                MainActivity.this.startForegroundService(mServiceIntent);
+            else
+                MainActivity.this.startService(mServiceIntent);
 
-    // Long click handler for restarting scan for Ant+ devices
-    private View.OnLongClickListener createLongClickListener(final DoAction action) {
-        return new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                if (!serviceStarted || !mBound) {
-                    return false;
-                }
-
-                action.action();
-                return true;
+            // Bind to the service so we can interact with it
+            if (!bindService(mServiceIntent, connection, Context.BIND_AUTO_CREATE)) {
+                Log.d(TAG, "Failed to bind to service");
+            } else {
+                mBound = true;
             }
-        };
+        }
     }
 
-    private void updateButtonState() {
-        // update the title
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                resetUi();
-                if (serviceStarted)
-                    btn_service.setText(getText(R.string.stop_service));
-                else
-                    btn_service.setText(getText(R.string.start_service));
-            }
-        });
+    protected void onResume() {
+        Intent mServiceIntent = new Intent(getApplicationContext(), CSCService.class);
+        super.onResume();
+        ensureServiceRunning(mServiceIntent);
     }
+
 
     /** Defines callbacks for service binding, passed to bindService() */
     private ServiceConnection connection = new ServiceConnection() {
@@ -147,13 +100,6 @@ public class MainActivity extends AppCompatActivity  {
         }
     };
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Log.d(TAG, "onResume(): service was " + (serviceStarted ? "started" : "stopped"));
-        serviceStarted = isServiceRunning();
-    }
-
     // Unbind from the service
     void unbindService() {
         if (mBound) {
@@ -168,20 +114,6 @@ public class MainActivity extends AppCompatActivity  {
 
         unregisterReceiver(receiver);
         unbindService();
-    }
-
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-    }
-
-    @Override
-    public void onRestoreInstanceState(Bundle savedInstanceState) {
-        //resetUi();
-        if (serviceStarted)
-            btn_service.setText(getText(R.string.stop_service));
-        else
-            btn_service.setText(getText(R.string.start_service));
     }
 
     private void resetUi() {
