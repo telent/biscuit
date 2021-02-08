@@ -13,6 +13,7 @@ import android.util.Pair
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.media.app.NotificationCompat
+import androidx.room.Room
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeSpeedDistancePcc
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeSpeedDistancePcc.CalculatedSpeedReceiver
@@ -25,9 +26,11 @@ import com.dsi.ant.plugins.antplus.pcc.defines.RequestAccessResult
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc.IDeviceStateChangeReceiver
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc.IPluginAccessResultReceiver
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle
-import idv.markkuo.cscblebridge.CSCService
-import idv.markkuo.cscblebridge.MainActivity
+import kotlinx.coroutines.runBlocking
+import java.lang.NullPointerException
+import java.lang.Thread.sleep
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.*
 import java.util.concurrent.Semaphore
 
@@ -297,6 +300,10 @@ class CSCService : Service() {
     private val mBCDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.CyclingCadence)
     private val mHRDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.HR)
     private val mSSDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.StrideBasedSpeedAndDistance)
+
+    private val db by lazy {
+        Room.databaseBuilder(this, BiscuitDatabase::class.java, "biscuit").build()
+    }
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service onStartCommand$intent")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -328,6 +335,7 @@ class CSCService : Service() {
             Log.d(TAG, "stopping")
             Toast.makeText(this, "Stopped recording", 5).show()
             stopForeground(true)
+            stopSelf()
         } else {
             startForeground(ONGOING_NOTIFICATION_ID, notification)
         }
@@ -342,7 +350,12 @@ class CSCService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(channel)
     }
-
+    val updaterThread = kotlin.concurrent.thread(start = false){
+        while(initialised) {
+            logUpdate()
+            sleep(1000)
+        }
+    }
     override fun onCreate() {
         Log.d(TAG, "Service started")
         super.onCreate()
@@ -350,6 +363,7 @@ class CSCService : Service() {
         // ANT+
         initAntPlus()
         initialised = true
+        updaterThread.start()
     }
 
     override fun onTaskRemoved(rootIntent: Intent) {
@@ -363,7 +377,7 @@ class CSCService : Service() {
         Log.d(TAG, "Service destroyed")
         super.onDestroy()
         if (initialised) {
-
+            initialised = false
             // stop ANT+
             if (bsdReleaseHandle != null) bsdReleaseHandle!!.close()
             if (bcReleaseHandle != null) bcReleaseHandle!!.close()
@@ -373,41 +387,38 @@ class CSCService : Service() {
         }
     }
 
-    var handler = Handler()
-    private val periodicUpdate: Runnable = object : Runnable {
-        override fun run() {
-            // scheduled next run in 1 sec
-            handler.postDelayed(this, 1000)
-
-
-            // update UI by sending broadcast to our main activity
-            val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
-            i.putExtra("speed", lastSpeed)
-            i.putExtra("cadence", lastCadence)
-            i.putExtra("hr", lastHR)
-            i.putExtra("ss_distance", lastSSDistance)
-            i.putExtra("ss_speed", lastSSSpeed)
-            i.putExtra("ss_stride_count", lastStridePerMinute)
-            i.putExtra("speed_timestamp", lastSpeedTimestamp)
-            i.putExtra("cadence_timestamp", lastCadenceTimestamp)
-            i.putExtra("hr_timestamp", lastHRTimestamp)
-            i.putExtra("ss_distance_timestamp", lastSSDistanceTimestamp)
-            i.putExtra("ss_speed_timestamp", lastSSSpeedTimestamp)
-            i.putExtra("ss_stride_count_timestamp", lastSSStrideCountTimestamp)
-            Log.v(TAG, "Updating UI: speed:" + lastSpeed
-                    + ", cadence:" + lastCadence +
-                    ", hr " + lastHR +
-                    ", speed_ts:" + lastSpeedTimestamp +
-                    ", cadence_ts:" + lastCadenceTimestamp +
-                    ", " + lastHRTimestamp +
-                    ", ss_distance: " + lastSSDistance +
-                    ", ss_distance_timestamp: " + lastSSDistanceTimestamp +
-                    ", ss_speed: " + lastSSSpeed +
-                    ", ss_speed_timestamp: " + lastSSSpeedTimestamp +
-                    ", ss_stride_count: " + lastStridePerMinute +
-                    ", ss_stride_count_timestamp: " + lastSSStrideCountTimestamp)
-            sendBroadcast(i)
-        }
+    fun logUpdate() {
+        val tp = Trackpoint(Instant.now(), 1.0, 51.0,
+                lastSpeed, lastCadence.toFloat())
+        db.trackpointDao().addPoint(tp)
+        Log.d(TAG, "# points: " + db.trackpointDao().getAll().size)
+        // update UI by sending broadcast to our main activity
+        val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+        i.putExtra("speed", lastSpeed)
+        i.putExtra("cadence", lastCadence)
+        i.putExtra("hr", lastHR)
+        i.putExtra("ss_distance", lastSSDistance)
+        i.putExtra("ss_speed", lastSSSpeed)
+        i.putExtra("ss_stride_count", lastStridePerMinute)
+        i.putExtra("speed_timestamp", lastSpeedTimestamp)
+        i.putExtra("cadence_timestamp", lastCadenceTimestamp)
+        i.putExtra("hr_timestamp", lastHRTimestamp)
+        i.putExtra("ss_distance_timestamp", lastSSDistanceTimestamp)
+        i.putExtra("ss_speed_timestamp", lastSSSpeedTimestamp)
+        i.putExtra("ss_stride_count_timestamp", lastSSStrideCountTimestamp)
+        Log.v(TAG, "Updating UI: speed:" + lastSpeed
+                + ", cadence:" + lastCadence +
+                ", hr " + lastHR +
+                ", speed_ts:" + lastSpeedTimestamp +
+                ", cadence_ts:" + lastCadenceTimestamp +
+                ", " + lastHRTimestamp +
+                ", ss_distance: " + lastSSDistance +
+                ", ss_distance_timestamp: " + lastSSDistanceTimestamp +
+                ", ss_speed: " + lastSSSpeed +
+                ", ss_speed_timestamp: " + lastSSSpeedTimestamp +
+                ", ss_stride_count: " + lastStridePerMinute +
+                ", ss_stride_count_timestamp: " + lastSSStrideCountTimestamp)
+        sendBroadcast(i)
     }
 
     /**
