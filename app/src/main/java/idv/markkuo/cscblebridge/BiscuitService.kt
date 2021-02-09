@@ -333,6 +333,7 @@ class BiscuitService : Service() {
             Toast.makeText(this, "Stopped recording", 5).show()
             stopForeground(true)
             stopSelf()
+            cleanupAndShutdown()
         } else {
             startForeground(ONGOING_NOTIFICATION_ID, notification)
         }
@@ -348,9 +349,13 @@ class BiscuitService : Service() {
         manager.createNotificationChannel(channel)
     }
     val updaterThread = kotlin.concurrent.thread(start = false){
+        var lastUpdate = 0L
         while(initialised) {
-            logUpdate()
-            sleep(1000)
+            val isChanged = (lastCadenceTimestamp > lastUpdate) ||
+                            (lastSpeedTimestamp > lastUpdate)
+            logUpdate(isChanged)
+            lastUpdate =  if (lastCadenceTimestamp > lastSpeedTimestamp) lastCadenceTimestamp else lastSpeedTimestamp
+            sleep(200)
         }
     }
     override fun onCreate() {
@@ -368,11 +373,10 @@ class BiscuitService : Service() {
         super.onTaskRemoved(rootIntent)
         stopForeground(true)
         stopSelf()
+        cleanupAndShutdown()
     }
 
-    override fun onDestroy() {
-        Log.d(TAG, "Service destroyed")
-        super.onDestroy()
+    private fun cleanupAndShutdown() {
         if (initialised) {
             initialised = false
             // stop ANT+
@@ -384,11 +388,21 @@ class BiscuitService : Service() {
         }
     }
 
-    fun logUpdate() {
-        val tp = Trackpoint(Instant.now(), 1.0, 51.0,
-                lastSpeed, lastCadence.toFloat())
-        db.trackpointDao().addPoint(tp)
-        Log.d(TAG, "# points: " + db.trackpointDao().getAll().size)
+    override fun onDestroy() {
+        Log.d(TAG, "Service destroyed")
+        super.onDestroy()
+        cleanupAndShutdown()
+    }
+
+
+    fun logUpdate(writeDatabase : Boolean) {
+        // Log.d(TAG, if(writeDatabase) "true" else "false")
+        if(writeDatabase) {
+            val tp = Trackpoint(Instant.now(), 1.0, 51.0,
+                    lastSpeed, lastCadence.toFloat())
+            db.trackpointDao().addPoint(tp)
+            Log.d(TAG, "# points: " + db.trackpointDao().getAll().size)
+        }
         // update UI by sending broadcast to our main activity
         val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
         i.putExtra("speed", lastSpeed)
