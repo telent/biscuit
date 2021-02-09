@@ -1,4 +1,4 @@
-package idv.markkuo.cscblebridge
+package net.telent.biscuit
 
 import android.app.ActivityManager
 import android.content.*
@@ -9,7 +9,7 @@ import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import idv.markkuo.cscblebridge.BiscuitService.LocalBinder
+import net.telent.biscuit.BiscuitService.LocalBinder
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId

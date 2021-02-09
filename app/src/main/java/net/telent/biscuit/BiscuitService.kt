@@ -1,4 +1,4 @@
-package idv.markkuo.cscblebridge
+package net.telent.biscuit
 
 import android.app.*
 import android.content.Context

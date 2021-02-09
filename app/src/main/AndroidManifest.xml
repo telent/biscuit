@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="idv.markkuo.cscblebridge">
+    package="net.telent.biscuit">
 
-    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
-
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -16,13 +13,13 @@
         android:usesCleartextTraffic="true"
         android:launchMode="singleTop"
         android:theme="@style/AppTheme">
-        <activity android:name="idv.markkuo.cscblebridge.MainActivity">
+        <activity android:name="net.telent.biscuit.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name="idv.markkuo.cscblebridge.BiscuitService"
+        <service android:name="net.telent.biscuit.BiscuitService"
             android:stopWithTask="false"
             android:label="CSCService">
         </service>

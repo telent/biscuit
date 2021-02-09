@@ -1,4 +1,4 @@
-package idv.markkuo.cscblebridge
+package net.telent.biscuit
 
 import androidx.room.TypeConverter
 import java.time.Instant
