@@ -434,34 +434,16 @@ class BiscuitService : Service() {
 
         val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
         i.putExtra("trackpoint", tp)
-        i.putExtra("speed", lastSpeed)
-        i.putExtra("cadence", lastCadence)
-        i.putExtra("hr", lastHR)
-        i.putExtra("ss_distance", lastSSDistance)
-        i.putExtra("ss_speed", lastSSSpeed)
-        i.putExtra("ss_stride_count", lastStridePerMinute)
-        i.putExtra("speed_timestamp", lastSpeedTimestamp)
-        i.putExtra("cadence_timestamp", lastCadenceTimestamp)
-        i.putExtra("hr_timestamp", lastHRTimestamp)
-        i.putExtra("ss_distance_timestamp", lastSSDistanceTimestamp)
-        i.putExtra("ss_speed_timestamp", lastSSSpeedTimestamp)
-        i.putExtra("ss_stride_count_timestamp", lastSSStrideCountTimestamp)
-        i.putExtra("lat", lastLocation?.latitude)
-        i.putExtra("lng", lastLocation?.longitude)
-        i.putExtra("ele", lastLocation?.altitude)
-        if(false)
-        Log.v(TAG, "Updating UI: speed:" + lastSpeed
-                + ", cadence:" + lastCadence +
-                ", hr " + lastHR +
-                ", speed_ts:" + lastSpeedTimestamp +
-                ", cadence_ts:" + lastCadenceTimestamp +
-                ", " + lastHRTimestamp +
-                ", ss_distance: " + lastSSDistance +
-                ", ss_distance_timestamp: " + lastSSDistanceTimestamp +
-                ", ss_speed: " + lastSSSpeed +
-                ", ss_speed_timestamp: " + lastSSSpeedTimestamp +
-                ", ss_stride_count: " + lastStridePerMinute +
-                ", ss_stride_count_timestamp: " + lastSSStrideCountTimestamp)
+//        i.putExtra("hr", lastHR)
+//        i.putExtra("ss_distance", lastSSDistance)
+//        i.putExtra("ss_speed", lastSSSpeed)
+//        i.putExtra("ss_stride_count", lastStridePerMinute)
+//        i.putExtra("speed_timestamp", lastSpeedTimestamp)
+//        i.putExtra("cadence_timestamp", lastCadenceTimestamp)
+//        i.putExtra("hr_timestamp", lastHRTimestamp)
+//        i.putExtra("ss_distance_timestamp", lastSSDistanceTimestamp)
+//        i.putExtra("ss_speed_timestamp", lastSSSpeedTimestamp)
+//        i.putExtra("ss_stride_count_timestamp", lastSSStrideCountTimestamp)
         sendBroadcast(i)
     }
 
