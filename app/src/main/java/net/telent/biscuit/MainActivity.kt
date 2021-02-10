@@ -1,7 +1,9 @@
 package net.telent.biscuit
 
+import android.Manifest
 import android.app.ActivityManager
 import android.content.*
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -9,8 +11,12 @@ import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import net.telent.biscuit.BiscuitService.LocalBinder
 import java.time.Instant
+import java.time.Instant.EPOCH
+import java.time.Instant.MIN
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -132,14 +138,14 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             val statusBSD = intent.getStringExtra("bsd_service_status") // bicycle speed
             val statusBC = intent.getStringExtra("bc_service_status") // bicycle cadence
-            val speed = intent.getFloatExtra("speed", -1.0f)
-            val cadence = intent.getIntExtra("cadence", -1)
-            val hr = intent.getIntExtra("hr", -1)
-            val instant = Instant.now() // Current moment in UTC.
+            val trackpoint = intent.getParcelableExtra<Trackpoint>("trackpoint") ?: Trackpoint(EPOCH, null,null)
+            val instant = trackpoint.timestamp
+            val speed = trackpoint.speed
+            val cadence = trackpoint.cadence
             val now = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
             runOnUiThread {
                 if (statusBSD != null) tv_speed!!.text = statusBSD else if (speed >= 0.0f) tv_speed!!.text = String.format("%.01f", speed) + " km/h"
-                if (statusBC != null) tv_speed!!.text = statusBC else if (cadence >= 0) tv_cadence!!.text = String.format("%3d rpm", cadence)
+                if (statusBC != null) tv_speed!!.text = statusBC else if (cadence >= 0.0f) tv_cadence!!.text = String.format("%3.1f rpm", cadence)
                 if (now != null) tv_time!!.text = String.format("%2d:%02d:%02d",
                         now.hour, now.minute, now.second)
             }

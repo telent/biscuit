@@ -1,8 +1,10 @@
 package net.telent.biscuit
 
+import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
@@ -14,6 +16,7 @@ import android.util.Log
 import android.util.Pair
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.core.app.ActivityCompat
 import androidx.media.app.NotificationCompat
 import androidx.room.Room
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc
@@ -428,8 +431,9 @@ class BiscuitService : Service() {
             db.trackpointDao().addPoint(tp)
             Log.d(TAG, "# points: " + db.trackpointDao().getAll().size)
         }
-        // update UI by sending broadcast to our main activity
+
         val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+        i.putExtra("trackpoint", tp)
         i.putExtra("speed", lastSpeed)
         i.putExtra("cadence", lastCadence)
         i.putExtra("hr", lastHR)
@@ -442,6 +446,9 @@ class BiscuitService : Service() {
         i.putExtra("ss_distance_timestamp", lastSSDistanceTimestamp)
         i.putExtra("ss_speed_timestamp", lastSSSpeedTimestamp)
         i.putExtra("ss_stride_count_timestamp", lastSSStrideCountTimestamp)
+        i.putExtra("lat", lastLocation?.latitude)
+        i.putExtra("lng", lastLocation?.longitude)
+        i.putExtra("ele", lastLocation?.altitude)
         if(false)
         Log.v(TAG, "Updating UI: speed:" + lastSpeed
                 + ", cadence:" + lastCadence +
