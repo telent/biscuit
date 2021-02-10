@@ -73,7 +73,7 @@ class BiscuitService : Service() {
     private var lastLocation : Location? = null
 
     // for onCreate() failure case
-    private var initialised = false
+    private var antInitialized = false
 
     // Used to flag if we have a combined speed and cadence sensor and have already re-connected as combined
     private var combinedSensorConnected = false
@@ -348,7 +348,7 @@ class BiscuitService : Service() {
             Toast.makeText(this, "Stopped recording", 5).show()
             stopForeground(true)
             stopSelf()
-            cleanupAndShutdown()
+            cleanupAnt()
         } else {
             startForeground(ONGOING_NOTIFICATION_ID, notification)
         }
@@ -363,9 +363,10 @@ class BiscuitService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(channel)
     }
+
     val updaterThread = kotlin.concurrent.thread(start = false){
         var lastUpdate = 0L
-        while(initialised) {
+        while(antInitialized) {
             val isChanged = (lastCadenceTimestamp > lastUpdate) ||
                             (lastSpeedTimestamp > lastUpdate)
             logUpdate(isChanged)
@@ -389,7 +390,6 @@ class BiscuitService : Service() {
         }
         // ANT+
         initAntPlus()
-        initialised = true
         updaterThread.start()
     }
 
@@ -398,12 +398,12 @@ class BiscuitService : Service() {
         super.onTaskRemoved(rootIntent)
         stopForeground(true)
         stopSelf()
-        cleanupAndShutdown()
+        cleanupAnt()
     }
 
-    private fun cleanupAndShutdown() {
-        if (initialised) {
-            initialised = false
+    private fun cleanupAnt() {
+        if (antInitialized) {
+            antInitialized = false
             // stop ANT+
             if (bsdReleaseHandle != null) bsdReleaseHandle!!.close()
             if (bcReleaseHandle != null) bcReleaseHandle!!.close()
@@ -416,7 +416,7 @@ class BiscuitService : Service() {
     override fun onDestroy() {
         Log.d(TAG, "Service destroyed")
         super.onDestroy()
-        cleanupAndShutdown()
+        cleanupAnt()
     }
 
 
@@ -456,6 +456,7 @@ class BiscuitService : Service() {
         startCadenceSensorSearch()
         startHRSensorSearch()
         startStrideSdmSensorSearch()
+        antInitialized = true
     }
 
     /**
