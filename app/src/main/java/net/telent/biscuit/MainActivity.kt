@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         val mServiceIntent = Intent(applicationContext, BiscuitService::class.java)
         super.onResume()
+        ensureLocationPermission(1)
         ensureServiceRunning(mServiceIntent)
     }
 
@@ -100,6 +101,20 @@ class MainActivity : AppCompatActivity() {
         tv_speed!!.text = getText(R.string.no_data)
         tv_cadence!!.text = getText(R.string.no_data)
         tv_time!!.text = "--:--"
+    }
+
+    fun ensureLocationPermission(locationRequestCode : Int) {
+        if (ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                            Manifest.permission.ACCESS_FINE_LOCATION)) {
+                ActivityCompat.requestPermissions(this,
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1)
+            } else {
+                ActivityCompat.requestPermissions(this,
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1);
+            }
+        }
     }
 
     private val isServiceRunning: Boolean

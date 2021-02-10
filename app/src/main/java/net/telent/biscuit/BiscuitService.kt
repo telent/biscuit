@@ -4,6 +4,9 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -64,6 +67,8 @@ class BiscuitService : Service() {
     private var lastSSSpeed = 0f
     private var lastStridePerMinute: Long = 0
 
+    private var lastLocation : Location? = null
+
     // for onCreate() failure case
     private var initialised = false
 
@@ -117,6 +122,13 @@ class BiscuitService : Service() {
                 bcReleaseHandle = AntPlusBikeCadencePcc.requestAccess(applicationContext, bsdPcc!!.antDeviceNumber, 0, true,
                         mBCResultReceiver, mBCDeviceStateChangeReceiver)
             }
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000L,1.0f,
+                    object: LocationListener {
+                        override fun onLocationChanged(p0: Location) {
+                            lastLocation = p0
+                            Log.d(TAG, "" + p0)
+                        }
+                    })
         }
     }
     private val mBCResultReceiver: IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = object : IPluginAccessResultReceiver<AntPlusBikeCadencePcc> {
@@ -358,10 +370,20 @@ class BiscuitService : Service() {
             sleep(200)
         }
     }
+
+    private lateinit var locationManager: LocationManager
+
     override fun onCreate() {
         Log.d(TAG, "Service started")
         super.onCreate()
-
+        locationManager = this.getSystemService(LOCATION_SERVICE) as LocationManager
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // return
+        } else {
+            val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            Log.d(TAG, ""+location)
+            lastLocation = location
+        }
         // ANT+
         initAntPlus()
         initialised = true
@@ -397,9 +419,12 @@ class BiscuitService : Service() {
 
     fun logUpdate(writeDatabase : Boolean) {
         // Log.d(TAG, if(writeDatabase) "true" else "false")
+        val tp = Trackpoint(Instant.now(),
+                lastLocation?.longitude,
+                lastLocation?.latitude,
+                lastSpeed,
+                lastCadence.toFloat())
         if(writeDatabase) {
-            val tp = Trackpoint(Instant.now(), 1.0, 51.0,
-                    lastSpeed, lastCadence.toFloat())
             db.trackpointDao().addPoint(tp)
             Log.d(TAG, "# points: " + db.trackpointDao().getAll().size)
         }
@@ -417,6 +442,7 @@ class BiscuitService : Service() {
         i.putExtra("ss_distance_timestamp", lastSSDistanceTimestamp)
         i.putExtra("ss_speed_timestamp", lastSSSpeedTimestamp)
         i.putExtra("ss_stride_count_timestamp", lastSSStrideCountTimestamp)
+        if(false)
         Log.v(TAG, "Updating UI: speed:" + lastSpeed
                 + ", cadence:" + lastCadence +
                 ", hr " + lastHR +
