@@ -21,8 +21,8 @@
         </activity>
         <service android:name="net.telent.biscuit.BiscuitService"
             android:stopWithTask="false"
-            android:label="CSCService">
             android:foregroundServiceType="location"
+            android:label="BiscuitService">
         </service>
     </application>
 
