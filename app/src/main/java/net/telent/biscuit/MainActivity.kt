@@ -14,9 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import net.telent.biscuit.BiscuitService.LocalBinder
-import java.time.Instant
 import java.time.Instant.EPOCH
-import java.time.Instant.MIN
 import java.time.LocalDateTime
 import java.time.ZoneId
 
