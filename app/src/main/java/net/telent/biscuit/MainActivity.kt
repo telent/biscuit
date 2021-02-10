@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
     private var mService: BiscuitService? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val intent = intent
+
         val mServiceIntent = Intent(applicationContext, BiscuitService::class.java)
         setContentView(R.layout.activity_main)
         tv_speed = findViewById(R.id.SpeedText)
@@ -50,9 +50,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun ensureServiceRunning(mServiceIntent: Intent) {
-        if (mBound) {
-            Log.d(TAG, "Service already started")
-        } else {
+        if (!mBound) {
             Log.d(TAG, "Starting Service")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(mServiceIntent) else startService(mServiceIntent)
 
@@ -105,7 +103,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val isServiceRunning: Boolean
-        private get() {
+        get() {
             val manager = (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
             for (service in manager.getRunningServices(Int.MAX_VALUE)) {
                 if (BiscuitService::class.java.name == service.service.className) {
@@ -115,22 +113,13 @@ class MainActivity : AppCompatActivity() {
             return false
         }
 
-    // this BroadcastReceiver is used to update UI only
     private inner class MainActivityReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val statusBSD = intent.getStringExtra("bsd_service_status") // bicycle speed
             val statusBC = intent.getStringExtra("bc_service_status") // bicycle cadence
-            //            final String statusHR = intent.getStringExtra("hr_service_status");
-//            final String statusRsc = intent.getStringExtra("ss_service_status");
-//            final long speedTimestamp = intent.getLongExtra("speed_timestamp", -1);
-//            final long cadenceTimestamp = intent.getLongExtra("cadence_timestamp", -1);
-//            final long hrTimestamp = intent.getLongExtra("hr_timestamp", -1);
-//            final long runTimestamp = intent.getLongExtra("ss_stride_count_timestamp", -1);
             val speed = intent.getFloatExtra("speed", -1.0f)
             val cadence = intent.getIntExtra("cadence", -1)
             val hr = intent.getIntExtra("hr", -1)
-            //            final float runSpeed = intent.getFloatExtra("ss_speed", -1);
-//            final long runStrideCount = intent.getLongExtra("ss_stride_count", -1);
             val instant = Instant.now() // Current moment in UTC.
             val now = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
             runOnUiThread {
