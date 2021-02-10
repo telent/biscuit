@@ -1,6 +1,7 @@
 package net.telent.biscuit
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
@@ -11,6 +12,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Binder
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import android.util.Pair
@@ -125,13 +127,6 @@ class BiscuitService : Service() {
                 bcReleaseHandle = AntPlusBikeCadencePcc.requestAccess(applicationContext, bsdPcc!!.antDeviceNumber, 0, true,
                         mBCResultReceiver, mBCDeviceStateChangeReceiver)
             }
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000L,1.0f,
-                    object: LocationListener {
-                        override fun onLocationChanged(p0: Location) {
-                            lastLocation = p0
-                            Log.d(TAG, "" + p0)
-                        }
-                    })
         }
     }
     private val mBCResultReceiver: IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = object : IPluginAccessResultReceiver<AntPlusBikeCadencePcc> {
@@ -380,17 +375,38 @@ class BiscuitService : Service() {
     override fun onCreate() {
         Log.d(TAG, "Service started")
         super.onCreate()
-        locationManager = this.getSystemService(LOCATION_SERVICE) as LocationManager
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // return
+            Toast.makeText(this, "Not recording track, no Location permission",
+                    Toast.LENGTH_SHORT).show()
         } else {
+            locationManager = this.getSystemService(LOCATION_SERVICE) as LocationManager
             val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            Log.d(TAG, ""+location)
             lastLocation = location
+            requestLocationUpdates()
         }
         // ANT+
         initAntPlus()
         updaterThread.start()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun requestLocationUpdates() {
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000L,1.0f,
+                object: LocationListener {
+                    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+                        Log.d(TAG, "status changed $provider $status,$extras")
+                    }
+                    override fun onProviderDisabled(provider: String) {
+                        Log.d(TAG, "location provider $provider disabled")
+                    }
+                    override fun onProviderEnabled(provider: String) {
+                        Log.d(TAG, "location provider $provider enabled")
+                    }
+                    override fun onLocationChanged(p0: Location) {
+                        lastLocation = p0
+                        Log.d(TAG, "" + p0)
+                    }
+                })
     }
 
     override fun onTaskRemoved(rootIntent: Intent) {
@@ -421,12 +437,12 @@ class BiscuitService : Service() {
 
 
     fun logUpdate(writeDatabase : Boolean) {
-        // Log.d(TAG, if(writeDatabase) "true" else "false")
-        val tp = Trackpoint(Instant.now(),
-                lastLocation?.longitude,
-                lastLocation?.latitude,
-                lastSpeed,
-                lastCadence.toFloat())
+        val tp = Trackpoint(
+                timestamp = Instant.now(),
+                lng = lastLocation?.longitude,
+                lat = lastLocation?.latitude,
+                speed = lastSpeed,
+                cadence = lastCadence.toFloat())
         if(writeDatabase) {
             db.trackpointDao().addPoint(tp)
             Log.d(TAG, "# points: " + db.trackpointDao().getAll().size)

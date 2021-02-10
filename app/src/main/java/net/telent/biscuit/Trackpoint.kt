@@ -8,7 +8,6 @@ import androidx.room.PrimaryKey
 import kotlinx.parcelize.Parcelize
 import java.time.Instant
 
-@SuppressLint("ParcelCreator")
 @Entity @Parcelize
 data class Trackpoint(
         @PrimaryKey @ColumnInfo(name = "ts") val timestamp: Instant,

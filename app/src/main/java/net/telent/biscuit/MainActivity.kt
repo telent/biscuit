@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
         tv_speed = findViewById(R.id.SpeedText)
         tv_cadence = findViewById(R.id.CadenceText)
         tv_time = findViewById(R.id.TimeText)
+        ensureLocationPermission(1)
         ensureServiceRunning(mServiceIntent)
         receiver = MainActivityReceiver()
         // register intent from our service
@@ -113,10 +114,10 @@ class MainActivity : AppCompatActivity() {
             if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                             Manifest.permission.ACCESS_FINE_LOCATION)) {
                 ActivityCompat.requestPermissions(this,
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1)
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), locationRequestCode)
             } else {
                 ActivityCompat.requestPermissions(this,
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1);
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), locationRequestCode);
             }
         }
     }
