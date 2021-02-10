@@ -19,28 +19,18 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 class MainActivity : AppCompatActivity() {
-    private val tv_speedSensorState: TextView? = null
-    private val tv_cadenceSensorState: TextView? = null
-    private val tv_hrSensorState: TextView? = null
-    private val tv_runSensorState: TextView? = null
-    private val tv_speedSensorTimestamp: TextView? = null
-    private val tv_cadenceSensorTimestamp: TextView? = null
-    private val tv_hrSensorTimestamp: TextView? = null
-    private val tv_runSensorTimestamp: TextView? = null
     private var tv_speed: TextView? = null
     private var tv_cadence: TextView? = null
-    private val tv_hr: TextView? = null
-    private val tv_runSpeed: TextView? = null
-    private val tv_runCadence: TextView? = null
     private var tv_time: TextView? = null
-    private var btn_service: Button? = null
     private var receiver: MainActivityReceiver? = null
-    private var mBound = false
+    private var serviceIsBound = false
     private var mService: BiscuitService? = null
+    private val mServiceIntent by lazy {
+        Intent(applicationContext, BiscuitService::class.java)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val mServiceIntent = Intent(applicationContext, BiscuitService::class.java)
         setContentView(R.layout.activity_main)
         tv_speed = findViewById(R.id.SpeedText)
         tv_cadence = findViewById(R.id.CadenceText)
@@ -52,21 +42,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun ensureServiceRunning(mServiceIntent: Intent) {
-        if (!mBound) {
+        if (!serviceIsBound) {
             Log.d(TAG, "Starting Service")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(mServiceIntent) else startService(mServiceIntent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                startForegroundService(mServiceIntent)
+            else
+                startService(mServiceIntent)
 
             // Bind to the service so we can interact with it
             if (!bindService(mServiceIntent, connection, Context.BIND_AUTO_CREATE)) {
                 Log.d(TAG, "Failed to bind to service")
             } else {
-                mBound = true
+                serviceIsBound = true
             }
         }
     }
 
     override fun onResume() {
-        val mServiceIntent = Intent(applicationContext, BiscuitService::class.java)
         super.onResume()
         ensureLocationPermission(1)
         ensureServiceRunning(mServiceIntent)
@@ -77,19 +69,19 @@ class MainActivity : AppCompatActivity() {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
             val binder = service as LocalBinder
             mService = binder.service
-            mBound = true
+            serviceIsBound = true
         }
 
         override fun onServiceDisconnected(arg0: ComponentName) {
-            mBound = false
+            serviceIsBound = false
         }
     }
 
     // Unbind from the service
     fun unbindService() {
-        if (mBound) {
+        if (serviceIsBound) {
             unbindService(connection)
-            mBound = false
+            serviceIsBound = false
         }
     }
 
@@ -97,12 +89,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         unregisterReceiver(receiver)
         unbindService()
-    }
-
-    private fun resetUi() {
-        tv_speed!!.text = getText(R.string.no_data)
-        tv_cadence!!.text = getText(R.string.no_data)
-        tv_time!!.text = "--:--"
     }
 
     fun ensureLocationPermission(locationRequestCode : Int) {
@@ -118,17 +104,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
-    private val isServiceRunning: Boolean
-        get() {
-            val manager = (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
-            for (service in manager.getRunningServices(Int.MAX_VALUE)) {
-                if (BiscuitService::class.java.name == service.service.className) {
-                    return true
-                }
-            }
-            return false
-        }
 
     private inner class MainActivityReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {

@@ -300,7 +300,6 @@ class BiscuitService : Service() {
                 bsdPcc = null
             }
         }
-
     }
 
     private val mBSDDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.CyclingSpeed)
