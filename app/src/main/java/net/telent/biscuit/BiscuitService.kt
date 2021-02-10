@@ -117,6 +117,8 @@ class BiscuitService : Service() {
                 cumulativeWheelRevolution = cumulativeRevolutions
                 lastWheelEventTime = ((timestampOfLastEvent.toInt().toDouble() * 1024.0).toInt())
                 lastSpeedTimestamp = estTimestamp
+                Log.d(TAG,"wheel timestamp $estTimestamp")
+                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
             if (bsdPcc!!.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
                 // reconnect cadence sensor as combined sensor
@@ -158,6 +160,7 @@ class BiscuitService : Service() {
                 cumulativeCrankRevolution = cumulativeRevolutions
                 lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
                 lastCadenceTimestamp = estTimestamp
+                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
             if (bcPcc!!.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
                 // reconnect speed sensor as a combined sensor
@@ -191,6 +194,7 @@ class BiscuitService : Service() {
             hrPcc!!.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
                 lastHR = computedHeartRate
                 lastHRTimestamp = estTimestamp
+                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
         }
     }
@@ -245,6 +249,7 @@ class BiscuitService : Service() {
                             }
                             lastSSStrideCountTimestamp = estTimestamp
                             lastStridePerMinute = strideCount
+                            lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
                             lock.release()
                         } catch (e: InterruptedException) {
                             Log.e(TAG, "Unable to acquire lock to update running cadence", e)
@@ -262,10 +267,12 @@ class BiscuitService : Service() {
             ssPcc!!.subscribeDistanceEvent { estTimestamp, eventFlags, distance ->
                 lastSSDistanceTimestamp = estTimestamp
                 lastSSDistance = distance.toLong()
+                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
             ssPcc!!.subscribeInstantaneousSpeedEvent { estTimestamp, eventFlags, instantaneousSpeed ->
                 lastSSDistanceTimestamp = estTimestamp
                 lastSSSpeed = instantaneousSpeed.toFloat()
+                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
         }
     }
@@ -310,6 +317,9 @@ class BiscuitService : Service() {
     private val db by lazy {
         Room.databaseBuilder(this, BiscuitDatabase::class.java, "biscuit").build()
     }
+
+    private var lastUpdateTime : Instant = Instant.EPOCH
+
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service onStartCommand$intent")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -359,13 +369,12 @@ class BiscuitService : Service() {
     }
 
     val updaterThread = kotlin.concurrent.thread(start = false){
-        var lastUpdate = 0L
+        var previousUpdateTime = Instant.EPOCH
         while(antInitialized) {
-            val isChanged = (lastCadenceTimestamp > lastUpdate) ||
-                            (lastSpeedTimestamp > lastUpdate)
+            val isChanged = lastUpdateTime > previousUpdateTime
             logUpdate(isChanged)
-            lastUpdate =  if (lastCadenceTimestamp > lastSpeedTimestamp) lastCadenceTimestamp else lastSpeedTimestamp
             sleep(200)
+            previousUpdateTime = lastUpdateTime
         }
     }
 
@@ -401,9 +410,10 @@ class BiscuitService : Service() {
                     override fun onProviderEnabled(provider: String) {
                         Log.d(TAG, "location provider $provider enabled")
                     }
-                    override fun onLocationChanged(p0: Location) {
-                        lastLocation = p0
-                        Log.d(TAG, "" + p0)
+                    override fun onLocationChanged(loc: Location) {
+                        lastLocation = loc
+                        lastUpdateTime = Instant.ofEpochMilli(loc.time)
+                        Log.d(TAG, "" + loc)
                     }
                 })
     }
@@ -444,7 +454,7 @@ class BiscuitService : Service() {
                 cadence = lastCadence.toFloat())
         if(writeDatabase) {
             db.trackpointDao().addPoint(tp)
-            Log.d(TAG, "# points: " + db.trackpointDao().getAll().size)
+            Log.d(TAG, "recording: " + tp)
         }
 
         val i = Intent(INTENT_NAME)
