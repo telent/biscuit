@@ -96,7 +96,7 @@ class BiscuitService : Service() {
             }
             // send broadcast
             val i = Intent(INTENT_NAME)
-            i.putExtra("bsd_service_status", "$initialDeviceState\n($resultCode)")
+            i.putExtra("bsd_service_status", "$initialDeviceState - $resultCode")
             sendBroadcast(i)
         }
 
@@ -147,7 +147,7 @@ class BiscuitService : Service() {
             }
             // send broadcast
             val i = Intent(INTENT_NAME)
-            i.putExtra("bc_service_status", "$initialDeviceState\n($resultCode)")
+            i.putExtra("bc_service_status", "$initialDeviceState - $resultCode")
             sendBroadcast(i)
         }
 
@@ -186,7 +186,7 @@ class BiscuitService : Service() {
             }
             // send broadcast
             val i = Intent(INTENT_NAME)
-            i.putExtra("hr_service_status", "$initialDeviceState\n($resultCode)")
+            i.putExtra("hr_service_status", "$initialDeviceState - $resultCode")
             sendBroadcast(i)
         }
 
@@ -498,7 +498,7 @@ class BiscuitService : Service() {
 
         // send initial state for UI
         val i = Intent(INTENT_NAME)
-        i.putExtra("bsd_service_status", "SEARCHING")
+        i.putExtra("bsd_service_status", "Searching")
         sendBroadcast(i)
     }
 
@@ -515,7 +515,7 @@ class BiscuitService : Service() {
 
         // send initial state for UI
         val i = Intent(INTENT_NAME)
-        i.putExtra("bc_service_status", "SEARCHING")
+        i.putExtra("bc_service_status", "Searching")
         sendBroadcast(i)
     }
 
@@ -532,7 +532,7 @@ class BiscuitService : Service() {
 
         // send initial state for UI
         val i = Intent(INTENT_NAME)
-        i.putExtra("hr_service_status", "SEARCHING")
+        i.putExtra("hr_service_status", "Searching")
         sendBroadcast(i)
     }
 
@@ -546,7 +546,7 @@ class BiscuitService : Service() {
         ssReleaseHandle = AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
                 mSSResultReceiver, mSSDeviceStateChangeReceiver)
         val i = Intent(INTENT_NAME)
-        i.putExtra("ss_service_status", "SEARCHING")
+        i.putExtra("ss_service_status", "Searching")
         sendBroadcast(i)
     }
 

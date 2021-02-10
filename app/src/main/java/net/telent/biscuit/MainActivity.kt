@@ -21,6 +21,8 @@ import java.time.ZoneId
 class MainActivity : AppCompatActivity() {
     private var tv_speed: TextView? = null
     private var tv_cadence: TextView? = null
+    private var tv_speed_state: TextView? = null
+    private var tv_cadence_state: TextView? = null
     private var tv_time: TextView? = null
     private var receiver: MainActivityReceiver? = null
     private var serviceIsBound = false
@@ -33,7 +35,9 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
         tv_speed = findViewById(R.id.SpeedText)
+        tv_speed_state = findViewById(R.id.SpeedState)
         tv_cadence = findViewById(R.id.CadenceText)
+        tv_cadence_state = findViewById(R.id.CadenceState)
         tv_time = findViewById(R.id.TimeText)
         ensureLocationPermission(1)
         ensureServiceRunning(mServiceIntent)
@@ -115,10 +119,17 @@ class MainActivity : AppCompatActivity() {
             val cadence = trackpoint.cadence
             val now = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
             runOnUiThread {
-                if (statusBSD != null) tv_speed!!.text = statusBSD else if (speed >= 0.0f) tv_speed!!.text = String.format("%.01f", speed) + " km/h"
-                if (statusBC != null) tv_speed!!.text = statusBC else if (cadence >= 0.0f) tv_cadence!!.text = String.format("%3.1f rpm", cadence)
-                if (now != null) tv_time!!.text = String.format("%2d:%02d:%02d",
+                if (statusBSD != null)
+                    tv_speed_state!!.text = statusBSD
+                if (speed >= 0.0f)
+                    tv_speed!!.text = String.format("%.01f", speed) + " km/h"
+                if (statusBC != null)
+                    tv_cadence_state!!.text = statusBC
+                if (cadence >= 0.0f)
+                    tv_cadence!!.text = String.format("%3.1f rpm", cadence)
+                tv_time!!.text = String.format("%2d:%02d:%02d",
                         now.hour, now.minute, now.second)
+
             }
         }
     }
