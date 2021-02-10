@@ -95,7 +95,7 @@ class BiscuitService : Service() {
                 Log.w(TAG, "BSD state changed:$initialDeviceState, resultCode:$resultCode")
             }
             // send broadcast
-            val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+            val i = Intent(INTENT_NAME)
             i.putExtra("bsd_service_status", "$initialDeviceState\n($resultCode)")
             sendBroadcast(i)
         }
@@ -144,7 +144,7 @@ class BiscuitService : Service() {
                 Log.w(TAG, "BC state changed:$initialDeviceState, resultCode:$resultCode")
             }
             // send broadcast
-            val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+            val i = Intent(INTENT_NAME)
             i.putExtra("bc_service_status", "$initialDeviceState\n($resultCode)")
             sendBroadcast(i)
         }
@@ -182,7 +182,7 @@ class BiscuitService : Service() {
                 Log.w(TAG, "HR state changed:$initialDeviceState, resultCode:$resultCode")
             }
             // send broadcast
-            val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+            val i = Intent(INTENT_NAME)
             i.putExtra("hr_service_status", "$initialDeviceState\n($resultCode)")
             sendBroadcast(i)
         }
@@ -207,7 +207,7 @@ class BiscuitService : Service() {
             }
 
             // send broadcast
-            val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+            val i = Intent(INTENT_NAME)
             i.putExtra("ss_service_status", "$initialDeviceState\n($resultCode)")
             sendBroadcast(i)
         }
@@ -291,7 +291,7 @@ class BiscuitService : Service() {
                 Log.d(TAG, "Stride based speed and distance onDeviceStateChange:$newDeviceState")
             }
             // send broadcast about device status
-            val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+            val i = Intent(INTENT_NAME)
             i.putExtra(extraName, newDeviceState.name)
             sendBroadcast(i)
 
@@ -373,7 +373,7 @@ class BiscuitService : Service() {
     private lateinit var locationManager: LocationManager
 
     override fun onCreate() {
-        Log.d(TAG, "Service started")
+        Log.d(TAG, "Service started " + INTENT_NAME)
         super.onCreate()
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, "Not recording track, no Location permission",
@@ -448,7 +448,7 @@ class BiscuitService : Service() {
             Log.d(TAG, "# points: " + db.trackpointDao().getAll().size)
         }
 
-        val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+        val i = Intent(INTENT_NAME)
         i.putExtra("trackpoint", tp)
 //        i.putExtra("hr", lastHR)
 //        i.putExtra("ss_distance", lastSSDistance)
@@ -488,7 +488,7 @@ class BiscuitService : Service() {
                 mBSDResultReceiver, mBSDDeviceStateChangeReceiver)
 
         // send initial state for UI
-        val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+        val i = Intent(INTENT_NAME)
         i.putExtra("bsd_service_status", "SEARCHING")
         sendBroadcast(i)
     }
@@ -505,7 +505,7 @@ class BiscuitService : Service() {
                 mBCResultReceiver, mBCDeviceStateChangeReceiver)
 
         // send initial state for UI
-        val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+        val i = Intent(INTENT_NAME)
         i.putExtra("bc_service_status", "SEARCHING")
         sendBroadcast(i)
     }
@@ -522,7 +522,7 @@ class BiscuitService : Service() {
                 mHRResultReceiver, mHRDeviceStateChangeReceiver)
 
         // send initial state for UI
-        val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+        val i = Intent(INTENT_NAME)
         i.putExtra("hr_service_status", "SEARCHING")
         sendBroadcast(i)
     }
@@ -536,7 +536,7 @@ class BiscuitService : Service() {
         if (ssReleaseHandle != null) ssReleaseHandle!!.close()
         ssReleaseHandle = AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
                 mSSResultReceiver, mSSDeviceStateChangeReceiver)
-        val i = Intent("idv.markkuo.cscblebridge.ANTDATA")
+        val i = Intent(INTENT_NAME)
         i.putExtra("ss_service_status", "SEARCHING")
         sendBroadcast(i)
     }
@@ -555,6 +555,7 @@ class BiscuitService : Service() {
 
     companion object {
         private val TAG = BiscuitService::class.java.simpleName
+        const val INTENT_NAME = BuildConfig.APPLICATION_ID + ".TRACKPOINTS"
         private const val ONGOING_NOTIFICATION_ID = 9999
         private const val CHANNEL_DEFAULT_IMPORTANCE = "csc_ble_channel"
         private const val MAIN_CHANNEL_NAME = "CscService"

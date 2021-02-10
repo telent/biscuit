@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
         receiver = MainActivityReceiver()
         // register intent from our service
         val filter = IntentFilter()
-        filter.addAction("idv.markkuo.cscblebridge.ANTDATA")
+        filter.addAction(BiscuitService.INTENT_NAME)
         registerReceiver(receiver, filter)
     }
 
