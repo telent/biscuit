@@ -48,10 +48,7 @@ class MainActivity : AppCompatActivity() {
         ensureLocationPermission(1)
         ensureServiceRunning(mServiceIntent)
         receiver = MainActivityReceiver()
-        // register intent from our service
-        val filter = IntentFilter()
-        filter.addAction(BiscuitService.INTENT_NAME)
-        registerReceiver(receiver, filter)
+        registerReceiver(receiver, IntentFilter(BiscuitService.INTENT_NAME))
     }
 
     private fun ensureServiceRunning(mServiceIntent: Intent) {
