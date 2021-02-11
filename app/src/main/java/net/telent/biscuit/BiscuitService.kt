@@ -50,10 +50,6 @@ class BiscuitService : Service() {
     private var ssPcc: AntPlusStrideSdmPcc? = null
     private var ssReleaseHandle: PccReleaseHandle<AntPlusStrideSdmPcc>? = null
 
-    // Checks that the callback that is done after a BluetoothGattServer.addService() has been complete.
-    // More services cannot be added until the callback has completed successfully
-    private val btServiceInitialized = false
-
     // last wheel and crank (speed/cadence) information to send to CSCProfile
     private var cumulativeWheelRevolution: Long = 0
     private var cumulativeCrankRevolution: Long = 0
@@ -63,7 +59,6 @@ class BiscuitService : Service() {
     private var lastCadenceTimestamp: Long = 0
     private var lastHRTimestamp: Long = 0
     private var lastSSDistanceTimestamp: Long = 0
-    private val lastSSSpeedTimestamp: Long = 0
     private var lastSSStrideCountTimestamp: Long = 0
     private var lastSpeed = 0f
     private var lastCadence = 0
@@ -222,7 +217,7 @@ class BiscuitService : Service() {
                 private val strideList = LinkedList<Pair<Long, Long>>()
                 private val lock = Semaphore(1)
                 override fun onNewStrideCount(estTimestamp: Long, eventFlags: EnumSet<EventFlag>, cumulativeStrides: Long) {
-                    Thread(Runnable {
+                    Thread {
                         val FALLBACK_MAX_LIST_SIZE = 500
                         try {
                             lock.acquire()
@@ -254,7 +249,7 @@ class BiscuitService : Service() {
                         } catch (e: InterruptedException) {
                             Log.e(TAG, "Unable to acquire lock to update running cadence", e)
                         }
-                    }).start()
+                    }.start()
                 }
 
                 private fun calculateStepsPerMin(estTimestamp: Long, cumulativeStrides: Long, p: Pair<Long, Long>): Long {
@@ -281,7 +276,7 @@ class BiscuitService : Service() {
         CyclingSpeed, CyclingCadence, HR, StrideBasedSpeedAndDistance
     }
 
-    private inner class AntDeviceChangeReceiver internal constructor(private val type: AntSensorType) : IDeviceStateChangeReceiver {
+    private inner class AntDeviceChangeReceiver(private val type: AntSensorType) : IDeviceStateChangeReceiver {
         override fun onDeviceStateChange(newDeviceState: DeviceState) {
             var extraName = "unknown"
             if (type == AntSensorType.CyclingSpeed) {
@@ -349,7 +344,7 @@ class BiscuitService : Service() {
                 .build()
         if (intent.hasExtra("stop_service")) {
             Log.d(TAG, "stopping")
-            Toast.makeText(this, "Stopped recording", 5).show()
+            Toast.makeText(this, "Stopped recording", Toast.LENGTH_SHORT).show()
             stopForeground(true)
             stopSelf()
             cleanupAnt()
@@ -368,7 +363,7 @@ class BiscuitService : Service() {
         manager.createNotificationChannel(channel)
     }
 
-    val updaterThread = kotlin.concurrent.thread(start = false){
+    private val updaterThread = kotlin.concurrent.thread(start = false){
         var previousUpdateTime = Instant.EPOCH
         while(antInitialized) {
             val isChanged = lastUpdateTime > previousUpdateTime
@@ -381,7 +376,7 @@ class BiscuitService : Service() {
     private lateinit var locationManager: LocationManager
 
     override fun onCreate() {
-        Log.d(TAG, "Service started " + INTENT_NAME)
+        Log.d(TAG, "Service started $INTENT_NAME")
         super.onCreate()
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, "Not recording track, no Location permission",
@@ -445,7 +440,7 @@ class BiscuitService : Service() {
     }
 
 
-    fun logUpdate(writeDatabase : Boolean) {
+    private fun logUpdate(writeDatabase : Boolean) {
         val tp = Trackpoint(
                 timestamp = Instant.now(),
                 lng = lastLocation?.longitude,
@@ -454,7 +449,7 @@ class BiscuitService : Service() {
                 cadence = lastCadence.toFloat())
         if(writeDatabase) {
             db.trackpointDao().addPoint(tp)
-            Log.d(TAG, "recording: " + tp)
+            Log.d(TAG, "recording: $tp")
         }
 
         val i = Intent(INTENT_NAME)
@@ -487,7 +482,7 @@ class BiscuitService : Service() {
     /**
      * Initializes the speed sensor search
      */
-    protected fun startSpeedSensorSearch() {
+    private fun startSpeedSensorSearch() {
         //Release the old access if it exists
         if (bsdReleaseHandle != null) bsdReleaseHandle!!.close()
         combinedSensorConnected = false
@@ -505,7 +500,7 @@ class BiscuitService : Service() {
     /**
      * Initializes the cadence sensor search
      */
-    protected fun startCadenceSensorSearch() {
+    private fun startCadenceSensorSearch() {
         //Release the old access if it exists
         if (bcReleaseHandle != null) bcReleaseHandle!!.close()
 
@@ -522,7 +517,7 @@ class BiscuitService : Service() {
     /**
      * Initializes the HR  sensor search
      */
-    protected fun startHRSensorSearch() {
+    private fun startHRSensorSearch() {
         //Release the old access if it exists
         if (hrReleaseHandle != null) hrReleaseHandle!!.close()
 
@@ -541,7 +536,7 @@ class BiscuitService : Service() {
      *
      * ex. Garmin Foot Pod
      */
-    protected fun startStrideSdmSensorSearch() {
+    private fun startStrideSdmSensorSearch() {
         if (ssReleaseHandle != null) ssReleaseHandle!!.close()
         ssReleaseHandle = AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
                 mSSResultReceiver, mSSDeviceStateChangeReceiver)
@@ -550,7 +545,7 @@ class BiscuitService : Service() {
         sendBroadcast(i)
     }
 
-    override fun onBind(intent: Intent): IBinder? {
+    override fun onBind(intent: Intent): IBinder {
         return binder
     }
 
