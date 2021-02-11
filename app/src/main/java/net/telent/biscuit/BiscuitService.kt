@@ -90,9 +90,7 @@ class BiscuitService : Service() {
                 Log.w(TAG, "BSD state changed:$initialDeviceState, resultCode:$resultCode")
             }
             // send broadcast
-            val i = Intent(INTENT_NAME)
-            i.putExtra("bsd_service_status", "$initialDeviceState - $resultCode")
-            sendBroadcast(i)
+            sendDeviceState("bsd_service_status", initialDeviceState, resultCode)
         }
 
         private fun subscribeToEvents() {
@@ -126,6 +124,13 @@ class BiscuitService : Service() {
             }
         }
     }
+
+    private fun sendDeviceState(name: String, initialDeviceState: DeviceState?, resultCode: RequestAccessResult?) {
+        val i = Intent(INTENT_NAME)
+        i.putExtra(name, "$initialDeviceState -($resultCode)")
+        sendBroadcast(i)
+    }
+
     private val mBCResultReceiver: IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = object : IPluginAccessResultReceiver<AntPlusBikeCadencePcc> {
         // Handle the result, connecting to events on success or reporting
         // failure to user.
@@ -140,10 +145,7 @@ class BiscuitService : Service() {
             } else {
                 Log.w(TAG, "BC state changed:$initialDeviceState, resultCode:$resultCode")
             }
-            // send broadcast
-            val i = Intent(INTENT_NAME)
-            i.putExtra("bc_service_status", "$initialDeviceState - $resultCode")
-            sendBroadcast(i)
+            sendDeviceState("bc_service_status", initialDeviceState, resultCode)
         }
 
         private fun subscribeToEvents() {
@@ -179,10 +181,7 @@ class BiscuitService : Service() {
             } else {
                 Log.w(TAG, "HR state changed:$initialDeviceState, resultCode:$resultCode")
             }
-            // send broadcast
-            val i = Intent(INTENT_NAME)
-            i.putExtra("hr_service_status", "$initialDeviceState - $resultCode")
-            sendBroadcast(i)
+            sendDeviceState("hr_service_status", initialDeviceState, resultCode)
         }
 
         private fun subscribeToEvents() {
@@ -204,11 +203,7 @@ class BiscuitService : Service() {
             } else {
                 Log.w(TAG, "SS state changed: $initialDeviceState, resultCode:$resultCode")
             }
-
-            // send broadcast
-            val i = Intent(INTENT_NAME)
-            i.putExtra("ss_service_status", "$initialDeviceState\n($resultCode)")
-            sendBroadcast(i)
+            sendDeviceState("ss_service_status", initialDeviceState, resultCode)
         }
 
         private fun subscribeToEvents() {
@@ -292,10 +287,7 @@ class BiscuitService : Service() {
                 extraName = "ss_service_status"
                 Log.d(TAG, "Stride based speed and distance onDeviceStateChange:$newDeviceState")
             }
-            // send broadcast about device status
-            val i = Intent(INTENT_NAME)
-            i.putExtra(extraName, newDeviceState.name)
-            sendBroadcast(i)
+            sendDeviceState(extraName, newDeviceState, null)
 
             // if the device is dead (closed)
             if (newDeviceState == DeviceState.DEAD) {
