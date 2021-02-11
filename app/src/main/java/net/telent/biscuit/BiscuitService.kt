@@ -130,6 +130,11 @@ class BiscuitService : Service() {
         i.putExtra(name, "$initialDeviceState -($resultCode)")
         sendBroadcast(i)
     }
+    private fun sendDeviceSearching(name: String) {
+        val i = Intent(INTENT_NAME)
+        i.putExtra(name, "Starting search")
+        sendBroadcast(i)
+    }
 
     private val mBCResultReceiver: IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = object : IPluginAccessResultReceiver<AntPlusBikeCadencePcc> {
         // Handle the result, connecting to events on success or reporting
@@ -473,10 +478,7 @@ class BiscuitService : Service() {
         bsdReleaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(this, 0, 0, false,
                 mBSDResultReceiver, mBSDDeviceStateChangeReceiver)
 
-        // send initial state for UI
-        val i = Intent(INTENT_NAME)
-        i.putExtra("bsd_service_status", "Searching")
-        sendBroadcast(i)
+        sendDeviceSearching("bsd_service_status")
     }
 
     /**
@@ -491,9 +493,7 @@ class BiscuitService : Service() {
                 mBCResultReceiver, mBCDeviceStateChangeReceiver)
 
         // send initial state for UI
-        val i = Intent(INTENT_NAME)
-        i.putExtra("bc_service_status", "Searching")
-        sendBroadcast(i)
+        sendDeviceSearching("bc_service_status")
     }
 
     /**
@@ -507,10 +507,7 @@ class BiscuitService : Service() {
         hrReleaseHandle = AntPlusHeartRatePcc.requestAccess(this, 0, 0,
                 mHRResultReceiver, mHRDeviceStateChangeReceiver)
 
-        // send initial state for UI
-        val i = Intent(INTENT_NAME)
-        i.putExtra("hr_service_status", "Searching")
-        sendBroadcast(i)
+        sendDeviceSearching("hr_service_status")
     }
 
     /**
@@ -522,9 +519,7 @@ class BiscuitService : Service() {
         if (ssReleaseHandle != null) ssReleaseHandle!!.close()
         ssReleaseHandle = AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
                 mSSResultReceiver, mSSDeviceStateChangeReceiver)
-        val i = Intent(INTENT_NAME)
-        i.putExtra("ss_service_status", "Searching")
-        sendBroadcast(i)
+        sendDeviceSearching("ss_service_status")
     }
 
     override fun onBind(intent: Intent): IBinder {
