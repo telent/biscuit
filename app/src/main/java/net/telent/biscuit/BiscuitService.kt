@@ -319,7 +319,7 @@ class BiscuitService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT)
         val stopServiceIntent = Intent(this, BiscuitService::class.java)
         stopServiceIntent.putExtra("stop_service", 1)
-        val snoozePendingIntent = PendingIntent.getService(
+        val stopServicePendingIntent = PendingIntent.getService(
                 this,
                 0,
                 stopServiceIntent,
@@ -330,7 +330,7 @@ class BiscuitService : Service() {
                 .setContentIntent(notifyPendingIntent)
                 .setSmallIcon(R.drawable.ic_notification_icon)
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_DEFAULT)
-                .addAction(R.drawable.ic_baseline_stop_24, "STOP SERVICE", snoozePendingIntent)
+                .addAction(R.drawable.ic_baseline_stop_24, "STOP SERVICE", stopServicePendingIntent)
                 .setAutoCancel(true)
                 .setStyle(NotificationCompat.MediaStyle().setShowActionsInCompactView(0))
                 .build()
@@ -446,16 +446,6 @@ class BiscuitService : Service() {
 
         val i = Intent(INTENT_NAME)
         i.putExtra("trackpoint", tp)
-//        i.putExtra("hr", lastHR)
-//        i.putExtra("ss_distance", lastSSDistance)
-//        i.putExtra("ss_speed", lastSSSpeed)
-//        i.putExtra("ss_stride_count", lastStridePerMinute)
-//        i.putExtra("speed_timestamp", lastSpeedTimestamp)
-//        i.putExtra("cadence_timestamp", lastCadenceTimestamp)
-//        i.putExtra("hr_timestamp", lastHRTimestamp)
-//        i.putExtra("ss_distance_timestamp", lastSSDistanceTimestamp)
-//        i.putExtra("ss_speed_timestamp", lastSSSpeedTimestamp)
-//        i.putExtra("ss_stride_count_timestamp", lastSSStrideCountTimestamp)
         sendBroadcast(i)
     }
 
