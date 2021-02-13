@@ -28,6 +28,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    flavorDimensions 'sensors'
+    productFlavors {
+        real {
+            dimension 'sensors'
+        }
+        fake {
+            dimension 'sensors'
+        }
+    }
 
 }
 

@@ -72,6 +72,10 @@ class BiscuitService : Service() {
     // for onCreate() failure case
     private var antInitialized = false
 
+    fun isFake() : Boolean {
+        return(FLAVOR == "fake")
+    }
+
     // Used to flag if we have a combined speed and cadence sensor and have already re-connected as combined
     private var combinedSensorConnected = false
 
@@ -80,6 +84,11 @@ class BiscuitService : Service() {
     private val mBSDResultReceiver: IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> = object : IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> {
         override fun onResultReceived(result: AntPlusBikeSpeedDistancePcc?,
                                       resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
+            if(this@BiscuitService.isFake()) {
+                sendDeviceState("bsd_service_status", DeviceState.TRACKING,
+                        RequestAccessResult.SUCCESS)
+                return
+            }
             if (resultCode == RequestAccessResult.SUCCESS) {
                 bsdPcc = result
                 if(result != null) Log.d(TAG, result.deviceName + ": " + initialDeviceState)
@@ -141,6 +150,11 @@ class BiscuitService : Service() {
         // failure to user.
         override fun onResultReceived(result: AntPlusBikeCadencePcc?,
                                       resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
+            if(this@BiscuitService.isFake()) {
+                sendDeviceState("bc_service_status", DeviceState.TRACKING,
+                         RequestAccessResult.SUCCESS)
+                return
+            }
             if (resultCode == RequestAccessResult.SUCCESS) {
                 bcPcc = result
                 if(result != null) Log.d(TAG, result.deviceName + ": " + initialDeviceState)
@@ -367,6 +381,18 @@ class BiscuitService : Service() {
             logUpdate(isChanged)
             sleep(200)
             previousUpdateTime = lastUpdateTime
+    private val fakeSensorThread = thread(start = false) {
+        while (antInitialized) {
+            Thread.sleep(400)
+            lastUpdateTime = Instant.now()
+            val sinuspeed = Math.sin(lastUpdateTime.toEpochMilli().toDouble() / 6000.0)
+            lastSpeed = max(30.0 * sinuspeed - 5.0, 0.0).toFloat()
+            if(lastSpeed > 1.0f) {
+                cumulativeWheelRevolution = cumulativeWheelRevolution + 1
+                lastCadence = if (Math.random() > 0.3) lastSpeed.toInt() else 0;
+            } else {
+                lastCadence = 0
+            }
         }
     }
 
@@ -386,10 +412,11 @@ class BiscuitService : Service() {
         }
         // ANT+
         initAntPlus()
+        if(this.isFake()) fakeSensorThread.start()
         updaterThread.start()
     }
 
-    @SuppressLint("MissingPermission")
+    @SuppressLint("MissingPermission") // only called from fns that check the permission
     private fun requestLocationUpdates() {
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000L,1.0f,
                 object: LocationListener {
@@ -458,7 +485,10 @@ class BiscuitService : Service() {
      * Initialize searching for all supported sensors
      */
     private fun initAntPlus() {
-        Log.d(TAG, "requesting ANT+ access")
+        if(this.isFake())
+            Log.d(TAG, "faking ANT+ access")
+        else
+            Log.d(TAG, "requesting ANT+ access")
         startSpeedSensorSearch()
         startCadenceSensorSearch()
         startHRSensorSearch()
@@ -537,6 +567,7 @@ class BiscuitService : Service() {
     companion object {
         private val TAG = BiscuitService::class.java.simpleName
         const val INTENT_NAME = BuildConfig.APPLICATION_ID + ".TRACKPOINTS"
+        const val FLAVOR = BuildConfig.FLAVOR
         private const val ONGOING_NOTIFICATION_ID = 9999
         private const val CHANNEL_DEFAULT_IMPORTANCE = "csc_ble_channel"
         private const val MAIN_CHANNEL_NAME = "CscService"
