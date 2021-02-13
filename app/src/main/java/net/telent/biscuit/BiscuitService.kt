@@ -321,7 +321,7 @@ class BiscuitService : Service() {
     private val mSSDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.StrideBasedSpeedAndDistance)
 
     private val db by lazy {
-        Room.databaseBuilder(this, BiscuitDatabase::class.java, "biscuit").build()
+        BiscuitDatabase.getInstance(this.applicationContext)
     }
 
     private var lastUpdateTime : Instant = Instant.EPOCH
@@ -470,7 +470,9 @@ class BiscuitService : Service() {
                 lng = lastLocation?.longitude,
                 lat = lastLocation?.latitude,
                 speed = lastSpeed,
-                cadence = lastCadence.toFloat())
+                cadence = lastCadence.toFloat(),
+                wheelRevolutions = cumulativeWheelRevolution
+        )
         if(writeDatabase) {
             db.trackpointDao().addPoint(tp)
             Log.d(TAG, "recording: $tp")

@@ -14,5 +14,6 @@ data class Trackpoint(
         @ColumnInfo(name = "lat") val lat: Double?,
         @ColumnInfo(name = "lng") val lng: Double?,
         @ColumnInfo(name = "speed") val speed: Float = -1.0f,
-        @ColumnInfo(name = "cad") val cadence: Float = -1.0f
+        @ColumnInfo(name = "cad") val cadence: Float = -1.0f,
+        @ColumnInfo(name = "revs") val wheelRevolutions: Long = 0
 ) : Parcelable

@@ -110,6 +110,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private inner class MainActivityReceiver : BroadcastReceiver() {
+        val tv_distance = findViewById<TextView>(R.id.DistanceText)
+        var lastMovingTime = EPOCH
+
         override fun onReceive(context: Context, intent: Intent) {
             val statusBSD = intent.getStringExtra("bsd_service_status") // bicycle speed
             val statusBC = intent.getStringExtra("bc_service_status") // bicycle cadence
@@ -130,6 +133,11 @@ class MainActivity : AppCompatActivity() {
                 tv_time!!.text = String.format("%2d:%02d:%02d",
                         now.hour, now.minute, now.second)
 
+                val distanceM = trackpoint.wheelRevolutions * 2.070
+                if (distanceM < 5000)
+                    tv_distance.text = String.format("%.01f m", distanceM)
+                else
+                    tv_distance.text = String.format("%.01f km", distanceM / 1000)
             }
         }
     }
