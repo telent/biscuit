@@ -22,7 +22,7 @@
                 android:id="@+id/SpeedState"
                 android:layout_weight="1"
                 android:layout_height="24pt"
-                android:layout_marginLeft="10dp"
+                android:layout_marginStart="10dp"
                 android:layout_width="fill_parent"
                 android:text=""
                 android:autoSizeTextType="uniform"
@@ -33,7 +33,7 @@
                 android:id="@+id/SpeedText"
                 android:layout_height="fill_parent"
                 android:layout_width="fill_parent"
-                android:layout_marginLeft="10dp"
+                android:layout_marginStart="10dp"
                 android:text=""
                 android:gravity="bottom"
                 android:textSize="36pt" />
@@ -50,7 +50,7 @@
             <TextView
                 android:id="@+id/CadenceState"
                 android:layout_weight="1"
-                android:layout_marginLeft="10dp"
+                android:layout_marginStart="10dp"
                 android:layout_height="24pt"
                 android:layout_width="fill_parent"
                 android:text=""
@@ -61,7 +61,7 @@
                 android:layout_height="fill_parent"
                 android:layout_width="fill_parent"
                 android:layout_weight="1"
-                android:layout_marginLeft="10dp"
+                android:layout_marginStart="10dp"
                 android:text=""
                 android:gravity="bottom"
                 android:textSize="36pt" />
@@ -71,7 +71,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginLeft="10dp"
+            android:layout_marginStart="10dp"
             android:text=""
             android:gravity="bottom"
             android:textSize="36pt" />
@@ -80,7 +80,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginLeft="10dp"
+            android:layout_marginStart="10dp"
             android:text=""
             android:gravity="bottom"
             android:textSize="36pt" />

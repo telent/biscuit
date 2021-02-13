@@ -20,7 +20,6 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.media.app.NotificationCompat
-import androidx.room.Room
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeSpeedDistancePcc
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeSpeedDistancePcc.CalculatedSpeedReceiver
@@ -106,9 +105,7 @@ class BiscuitService : Service() {
             bsdPcc!!.subscribeCalculatedSpeedEvent(object : CalculatedSpeedReceiver(circumference) {
                 override fun onNewCalculatedSpeed(estTimestamp: Long,
                                                   eventFlags: EnumSet<EventFlag>, calculatedSpeed: BigDecimal) {
-                    // convert m/s to km/h
                     lastSpeed = (calculatedSpeed.multiply(msToKmSRatio)).toFloat()
-                    //Log.v(TAG, "Speed:" + lastSpeed);
                 }
             })
             bsdPcc!!.subscribeRawSpeedAndDistanceDataEvent { estTimestamp, _eventFlags, timestampOfLastEvent, cumulativeRevolutions -> //estTimestamp - The estimated timestamp of when this event was triggered. Useful for correlating multiple events and determining when data was sent for more accurate data records.
@@ -136,9 +133,10 @@ class BiscuitService : Service() {
 
     private fun sendDeviceState(name: String, initialDeviceState: DeviceState?, resultCode: RequestAccessResult?) {
         val i = Intent(INTENT_NAME)
-        i.putExtra(name, "$initialDeviceState -($resultCode)")
+        i.putExtra(name, "$initialDeviceState - $resultCode")
         sendBroadcast(i)
     }
+
     private fun sendDeviceSearching(name: String) {
         val i = Intent(INTENT_NAME)
         i.putExtra(name, "Starting search")
@@ -374,7 +372,7 @@ class BiscuitService : Service() {
         manager.createNotificationChannel(channel)
     }
 
-    private val updaterThread = kotlin.concurrent.thread(start = false){
+    private val updaterThread = thread(start = false){
         var previousUpdateTime = Instant.EPOCH
         while(antInitialized) {
             val isChanged = lastUpdateTime > previousUpdateTime
@@ -383,13 +381,13 @@ class BiscuitService : Service() {
             previousUpdateTime = lastUpdateTime
     private val fakeSensorThread = thread(start = false) {
         while (antInitialized) {
-            Thread.sleep(400)
+            sleep(400)
             lastUpdateTime = Instant.now()
             val sinuspeed = Math.sin(lastUpdateTime.toEpochMilli().toDouble() / 6000.0)
             lastSpeed = max(30.0 * sinuspeed - 5.0, 0.0).toFloat()
             if(lastSpeed > 1.0f) {
-                cumulativeWheelRevolution = cumulativeWheelRevolution + 1
-                lastCadence = if (Math.random() > 0.3) lastSpeed.toInt() else 0;
+                cumulativeWheelRevolution += 1
+                lastCadence = if (Math.random() > 0.3) lastSpeed.toInt() else 0
             } else {
                 lastCadence = 0
             }
