@@ -13,6 +13,11 @@ val migrations = arrayOf(
         override fun migrate(database: SupportSQLiteDatabase) {
             database.execSQL("alter table trackpoint add column revs (integer)")
         }
+    },
+    object:  Migration(2,3) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("alter table trackpoint add column movingtime (integer)")
+        }
     }
 )
 

@@ -37,6 +37,8 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.Semaphore
+import kotlin.concurrent.thread
+import kotlin.math.max
 
 class BiscuitService : Service() {
     // Ant+ sensors
@@ -65,6 +67,7 @@ class BiscuitService : Service() {
     private var lastSSDistance: Long = 0
     private var lastSSSpeed = 0f
     private var lastStridePerMinute: Long = 0
+    private var movingTime: Long = 0
 
     private var lastLocation : Location? = null
 
@@ -375,10 +378,21 @@ class BiscuitService : Service() {
     private val updaterThread = thread(start = false){
         var previousUpdateTime = Instant.EPOCH
         while(antInitialized) {
-            val isChanged = lastUpdateTime > previousUpdateTime
+            val lastut = lastUpdateTime
+            val isChanged = lastut > previousUpdateTime
+
+            if(lastSpeed > 1.0f) {
+                Log.d(TAG, "moving! $isChanged")
+                Log.d(TAG, ""+ lastut.toEpochMilli() +" "+ previousUpdateTime.toEpochMilli())
+                movingTime += (lastut.toEpochMilli() - previousUpdateTime.toEpochMilli())
+            }
+
             logUpdate(isChanged)
             sleep(200)
-            previousUpdateTime = lastUpdateTime
+            previousUpdateTime = lastut
+        }
+    }
+
     private val fakeSensorThread = thread(start = false) {
         while (antInitialized) {
             sleep(400)
@@ -469,6 +483,7 @@ class BiscuitService : Service() {
                 lat = lastLocation?.latitude,
                 speed = lastSpeed,
                 cadence = lastCadence.toFloat(),
+                movingTime = movingTime,
                 wheelRevolutions = cumulativeWheelRevolution
         )
         if(writeDatabase) {

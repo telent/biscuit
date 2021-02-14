@@ -1,14 +1,12 @@
 package net.telent.biscuit
 
 import android.Manifest
-import android.app.ActivityManager
 import android.content.*
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
-import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -121,6 +119,14 @@ class MainActivity : AppCompatActivity() {
             val speed = trackpoint.speed
             val cadence = trackpoint.cadence
             val now = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
+            if (speed > 0) lastMovingTime = instant
+            val showMovingTime = (lastMovingTime > instant.minusSeconds(30))
+            val timestring = if (showMovingTime) {
+                val s = trackpoint.movingTime / 1000
+                String.format("%d:%02d:%02d", s / 3600, (s % 3600) / 60, (s % 60))
+            } else {
+                String.format("%2d:%02d:%02d", now.hour, now.minute, now.second)
+            }
             runOnUiThread {
                 if (statusBSD != null)
                     tv_speed_state!!.text = statusBSD
@@ -130,9 +136,7 @@ class MainActivity : AppCompatActivity() {
                     tv_cadence_state!!.text = statusBC
                 if (cadence >= 0.0f)
                     tv_cadence!!.text = String.format("%3.1f rpm", cadence)
-                tv_time!!.text = String.format("%2d:%02d:%02d",
-                        now.hour, now.minute, now.second)
-
+                tv_time!!.text = timestring
                 val distanceM = trackpoint.wheelRevolutions * 2.070
                 if (distanceM < 5000)
                     tv_distance.text = String.format("%.01f m", distanceM)
