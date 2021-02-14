@@ -39,6 +39,7 @@ import java.util.*
 import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
 import kotlin.math.max
+import kotlin.math.sin
 
 class BiscuitService : Service() {
     // Ant+ sensors
@@ -397,7 +398,7 @@ class BiscuitService : Service() {
         while (antInitialized) {
             sleep(40)
             val now = Instant.now()
-            val speed = 30 * Math.sin(now.toEpochMilli().toDouble() / 12000.0) - 1
+            val speed = 30 * sin(now.toEpochMilli().toDouble() / 12000.0) - 1
             if(lastSpeed > 0 || speed >= 0) {
                 synchronized(this) {
                     lastSpeed = max(speed, 0.0).toFloat()
