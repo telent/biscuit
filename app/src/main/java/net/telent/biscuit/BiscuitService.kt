@@ -395,15 +395,20 @@ class BiscuitService : Service() {
 
     private val fakeSensorThread = thread(start = false) {
         while (antInitialized) {
-            sleep(400)
-            lastUpdateTime = Instant.now()
-            val sinuspeed = Math.sin(lastUpdateTime.toEpochMilli().toDouble() / 6000.0)
-            lastSpeed = max(30.0 * sinuspeed - 5.0, 0.0).toFloat()
-            if(lastSpeed > 1.0f) {
-                cumulativeWheelRevolution += 1
-                lastCadence = if (Math.random() > 0.3) lastSpeed.toInt() else 0
-            } else {
-                lastCadence = 0
+            sleep(40)
+            val now = Instant.now()
+            val speed = 30 * Math.sin(now.toEpochMilli().toDouble() / 12000.0) - 1
+            if(lastSpeed > 0 || speed >= 0) {
+                synchronized(this) {
+                    lastSpeed = max(speed, 0.0).toFloat()
+                    if (lastSpeed > 1.0f) {
+                        cumulativeWheelRevolution += 1
+                        lastCadence = if (Math.random() > 0.3) lastSpeed.toInt() else 0
+                    } else {
+                        lastCadence = 0
+                    }
+                    lastUpdateTime = now
+                }
             }
         }
     }
