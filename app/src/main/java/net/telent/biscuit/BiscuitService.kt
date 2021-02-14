@@ -381,10 +381,10 @@ class BiscuitService : Service() {
             val lastut = lastUpdateTime
             val isChanged = lastut > previousUpdateTime
 
-            if(lastSpeed > 1.0f) {
-                Log.d(TAG, "moving! $isChanged")
-                Log.d(TAG, ""+ lastut.toEpochMilli() +" "+ previousUpdateTime.toEpochMilli())
-                movingTime += (lastut.toEpochMilli() - previousUpdateTime.toEpochMilli())
+            if(lastSpeed > 1.0f && previousUpdateTime > Instant.EPOCH) {
+                val elapsed = (lastut.toEpochMilli() - previousUpdateTime.toEpochMilli())
+                Log.d(TAG, "elapsed $elapsed")
+                movingTime += elapsed
             }
 
             logUpdate(isChanged)
