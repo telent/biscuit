@@ -335,7 +335,7 @@ class BiscuitService : Service() {
         val notifyPendingIntent = PendingIntent.getActivity(
                 this,
                 0,
-                Intent(this.applicationContext, MainActivity::class.java),
+                Intent(this.applicationContext, BikeActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT)
         val stopServiceIntent = Intent(this, BiscuitService::class.java)
         stopServiceIntent.putExtra("stop_service", 1)

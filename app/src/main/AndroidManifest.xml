@@ -2,28 +2,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="net.telent.biscuit">
 
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:launchMode="singleTop"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="true"
-        android:launchMode="singleTop"
-        android:theme="@style/AppTheme">
-        <activity android:name="net.telent.biscuit.MainActivity">
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true">
+        <activity
+            android:name=".BikeActivity"
+            android:label="@string/title_activity_bike">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name="net.telent.biscuit.BiscuitService"
-            android:stopWithTask="false"
+        <service
+            android:name=".BiscuitService"
             android:foregroundServiceType="location"
-            android:label="BiscuitService">
-        </service>
+            android:label="BiscuitService"
+            android:stopWithTask="false"></service>
     </application>
-
 </manifest>

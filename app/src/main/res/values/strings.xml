@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Biscuit</string>
     <string name="no_data">---</string>
+    <string name="title_activity_bike">MainActivity</string>
+    <string name="title_home">Home</string>
+    <string name="title_track">Track</string>
+    <string name="title_sensors">Sensors</string>
 </resources>

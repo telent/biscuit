@@ -9,7 +9,7 @@ import java.time.Instant
 
 @Entity @Parcelize
 data class Trackpoint(
-        @PrimaryKey @ColumnInfo(name = "ts") @JvmField @JvmField val timestamp: Instant,
+        @PrimaryKey @ColumnInfo(name = "ts") @JvmField val timestamp: Instant,
         @ColumnInfo(name = "lat") val lat: Double?,
         @ColumnInfo(name = "lng") val lng: Double?,
         @ColumnInfo(name = "speed") val speed: Float = -1.0f,
