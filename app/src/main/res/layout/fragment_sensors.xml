@@ -7,7 +7,6 @@
     tools:context=".ui.sensors.SensorsFragment">
 
     <TextView
-        android:id="@+id/text_notifications"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"

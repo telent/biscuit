@@ -6,21 +6,25 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.preference.PreferenceManager
 import android.util.Log
 import android.widget.TextView
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import net.telent.biscuit.BiscuitService.LocalBinder
-import java.time.Instant.EPOCH
-import java.time.LocalDateTime
-import java.time.ZoneId
-import com.google.android.material.bottomnavigation.BottomNavigationView
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import net.telent.biscuit.BiscuitService.LocalBinder
+import net.telent.biscuit.ui.track.TrackViewModel
+import org.osmdroid.config.Configuration
+import java.time.Instant.EPOCH
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 
 class BikeActivity : AppCompatActivity() {
@@ -48,6 +52,11 @@ class BikeActivity : AppCompatActivity() {
 
         ensureLocationPermission(1)
         ensureServiceRunning(mServiceIntent)
+
+        this.applicationContext.let {
+            Configuration.getInstance().load(it, PreferenceManager.getDefaultSharedPreferences(it))
+        }
+
         receiver = MainActivityReceiver()
         registerReceiver(receiver, IntentFilter(BiscuitService.INTENT_NAME))
     }
@@ -136,30 +145,36 @@ class BikeActivity : AppCompatActivity() {
                 String.format("%2d:%02d:%02d", now.hour, now.minute, now.second)
             }
             val dest = findNavController(R.id.nav_host_fragment_container).currentDestination
-            val label = dest?.label
-            if(label != null && label == "Home") {
-                val tv_distance: TextView = findViewById(R.id.DistanceText)
-                val tv_speed: TextView = findViewById(R.id.SpeedText)
-                val tv_cadence: TextView = findViewById(R.id.CadenceText)
-                val tv_speed_state: TextView = findViewById(R.id.SpeedState)
-                val tv_cadence_state: TextView = findViewById(R.id.CadenceState)
-                val tv_time: TextView = findViewById(R.id.TimeText)
 
-                runOnUiThread {
-                    if (statusBSD != null)
-                        tv_speed_state.text = statusBSD
-                    if (speed >= 0.0f)
-                        tv_speed.text = String.format("%.01f", speed) + " km/h"
-                    if (statusBC != null)
-                        tv_cadence_state.text = statusBC
-                    if (cadence >= 0.0f)
-                        tv_cadence.text = String.format("%3.1f rpm", cadence)
-                    tv_time.text = timestring
-                    val distanceM = trackpoint.wheelRevolutions * 2.070
-                    if (distanceM < 5000)
-                        tv_distance.text = String.format("%.01f m", distanceM)
-                    else
-                        tv_distance.text = String.format("%.01f km", distanceM / 1000)
+            when(dest?.label) {
+                "Home" -> {
+                    val tv_distance: TextView = findViewById(R.id.DistanceText)
+                    val tv_speed: TextView = findViewById(R.id.SpeedText)
+                    val tv_cadence: TextView = findViewById(R.id.CadenceText)
+                    val tv_speed_state: TextView = findViewById(R.id.SpeedState)
+                    val tv_cadence_state: TextView = findViewById(R.id.CadenceState)
+                    val tv_time: TextView = findViewById(R.id.TimeText)
+
+                    runOnUiThread {
+                        if (statusBSD != null)
+                            tv_speed_state.text = statusBSD
+                        if (speed >= 0.0f)
+                            tv_speed.text = String.format("%.01f", speed) + " km/h"
+                        if (statusBC != null)
+                            tv_cadence_state.text = statusBC
+                        if (cadence >= 0.0f)
+                            tv_cadence.text = String.format("%3.1f rpm", cadence)
+                        tv_time.text = timestring
+                        val distanceM = trackpoint.wheelRevolutions * 2.070
+                        if (distanceM < 5000)
+                            tv_distance.text = String.format("%.01f m", distanceM)
+                        else
+                            tv_distance.text = String.format("%.01f km", distanceM / 1000)
+                    }
+                }
+                "Track" -> {
+                    val vm: TrackViewModel  by viewModels()
+                    vm.move(trackpoint)
                 }
             }
         }
