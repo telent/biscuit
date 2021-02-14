@@ -25,6 +25,6 @@
             android:name=".BiscuitService"
             android:foregroundServiceType="location"
             android:label="BiscuitService"
-            android:stopWithTask="false"></service>
+            android:stopWithTask="false" />
     </application>
 </manifest>

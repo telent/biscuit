@@ -17,6 +17,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import androidx.navigation.findNavController
+import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
@@ -29,12 +30,15 @@ class BikeActivity : AppCompatActivity() {
     private val mServiceIntent by lazy {
         Intent(applicationContext, BiscuitService::class.java)
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_bike)
         val navView: BottomNavigationView = findViewById(R.id.nav_view)
+        val navHostFragment =
+            supportFragmentManager.findFragmentById(R.id.nav_host_fragment_container)!! as NavHostFragment
+        val navController = navHostFragment.navController
 
-        val navController = findNavController(R.id.nav_host_fragment)
         // Passing each menu ID as a set of Ids because each
         // menu should be considered as top level destinations.
         val appBarConfiguration = AppBarConfiguration(setOf(
@@ -131,9 +135,9 @@ class BikeActivity : AppCompatActivity() {
             } else {
                 String.format("%2d:%02d:%02d", now.hour, now.minute, now.second)
             }
-            val dest = findNavController(R.id.nav_host_fragment)?.currentDestination
+            val dest = findNavController(R.id.nav_host_fragment_container).currentDestination
             val label = dest?.label
-            if(label != null && label.equals("Home")) {
+            if(label != null && label == "Home") {
                 val tv_distance: TextView = findViewById(R.id.DistanceText)
                 val tv_speed: TextView = findViewById(R.id.SpeedText)
                 val tv_cadence: TextView = findViewById(R.id.CadenceText)

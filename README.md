@@ -14,3 +14,7 @@ tl;dr All the things
 - downloaded recorded tracks, ideally as GPX
 - app icon
 - notification icon
+
+## Note to nixpkgs users
+
+NIXPKGS_ALLOW_UNFREE=1  nix-shell -p firefox -p android-studio --run "android-studio ."
