@@ -10,6 +10,8 @@ import net.telent.biscuit.R
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 class TrackFragment : Fragment() {
     private lateinit var map : MapView
@@ -28,6 +30,14 @@ class TrackFragment : Fragment() {
         map.zoomController.setZoomInEnabled(true)
         map.zoomController.setZoomOutEnabled(true)
         map.setMultiTouchControls(true)
+
+        val gpsMyLocationProvider = GpsMyLocationProvider(this.requireActivity().baseContext).let {
+            it.locationUpdateMinDistance = 1.0f // [m]  // Set the minimum distance for location updates
+            it.locationUpdateMinTime = 1000
+            it
+        }
+        val locOverlay = MyLocationNewOverlay(gpsMyLocationProvider, map)
+        map.overlays.add(locOverlay)
 
         map.controller.setZoom(18.0)
         model.trackpoint.observe(viewLifecycleOwner, {
