@@ -13,7 +13,6 @@ android {
     }
 
     defaultConfig {
-        applicationId "net.telent.biscuit"
         minSdkVersion 26
         targetSdkVersion 30
         versionCode 3
@@ -31,9 +30,11 @@ android {
     flavorDimensions 'sensors'
     productFlavors {
         real {
+            applicationId "net.telent.biscuit"
             dimension 'sensors'
         }
         fake {
+            applicationId "net.telent.biscuit.fake"
             dimension 'sensors'
         }
     }
