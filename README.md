@@ -18,3 +18,6 @@ tl;dr All the things
 ## Note to nixpkgs users
 
 NIXPKGS_ALLOW_UNFREE=1  nix-shell -p firefox -p android-studio --run "android-studio ."
+
+![](Screenshot_20210216-230914_Biscuit.png)
+
