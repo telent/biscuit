@@ -20,7 +20,6 @@
             android:layout_width="match_parent"
             android:layout_weight="1"
             android:layout_height="0dp"
-            android:foreground="#371"
             android:foregroundGravity="center"
             >
             <TextView
@@ -35,6 +34,7 @@
                 />
             <TextView
                 android:id="@+id/SpeedText"
+                android:textColor="@color/colorText"
                 android:layout_height="fill_parent"
                 android:layout_width="fill_parent"
                 android:layout_marginStart="10dp"
@@ -48,7 +48,6 @@
             android:layout_width="match_parent"
             android:layout_weight="1"
             android:layout_height="0dp"
-            android:foreground="#371"
             android:foregroundGravity="center"
             >
             <TextView
@@ -61,15 +60,16 @@
                 android:autoSizeMaxTextSize="24pt" />
             <TextView
                 android:id="@+id/CadenceText"
+                android:textColor="@color/colorText"
                 android:layout_height="fill_parent"
                 android:layout_width="fill_parent"
                 android:layout_marginStart="10dp"
-                android:text=""
                 android:gravity="bottom"
                 android:textSize="36pt" />
         </FrameLayout>
         <TextView
             android:id="@+id/DistanceText"
+            android:textColor="@color/colorText"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
@@ -79,6 +79,7 @@
             android:textSize="36pt" />
         <TextView
             android:id="@+id/TimeText"
+            android:textColor="@color/colorText"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
