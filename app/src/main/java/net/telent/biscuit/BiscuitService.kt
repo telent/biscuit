@@ -361,10 +361,13 @@ class BiscuitService : Service() {
             stopForeground(true)
             stopSelf()
             cleanupAnt()
+        } else if(intent.hasExtra("refresh_sensors")) {
+            initAntPlus()
         } else {
             startForeground(ONGOING_NOTIFICATION_ID, notification)
         }
         return START_NOT_STICKY
+
     }
 
     @RequiresApi(Build.VERSION_CODES.O)

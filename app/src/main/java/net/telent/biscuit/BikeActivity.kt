@@ -46,6 +46,9 @@ class BikeActivity : AppCompatActivity() {
         // Handle item selection
         return when (item.itemId) {
             R.id.action_refresh -> {
+                startService(Intent(this, BiscuitService::class.java).let {
+                    it.putExtra("refresh_sensors", 1)
+                })
                 Log.d(TAG, "request poll sensors again")
                 true
             }
@@ -112,7 +115,6 @@ class BikeActivity : AppCompatActivity() {
         ensureServiceRunning(mServiceIntent)
         // XXX maybe signal the service to attempt to reconnect sensors
         // if they're not running
-    }
     }
 
     /** Defines callbacks for service binding, passed to bindService()  */
