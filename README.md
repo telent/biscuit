@@ -11,9 +11,11 @@ tl;dr All the things
 
 - some way to retry ANT scanning if it times out
 - prettify the UI
+- move sensor status into the sensors tab, switch to it when not TRACKING status
 - downloaded recorded tracks, ideally as GPX
-- app icon
-- notification icon
+- better app icon (some day)
+- 
+
 
 ## Note to nixpkgs users
 

@@ -349,7 +349,7 @@ class BiscuitService : Service() {
                 .setContentTitle(getString(R.string.app_name))
                 .setContentText("Active")
                 .setContentIntent(notifyPendingIntent)
-                .setSmallIcon(R.drawable.ic_notification_icon)
+                .setSmallIcon(R.drawable.ic_chaindodger)
                 .setPriority(androidx.core.app.NotificationCompat.PRIORITY_DEFAULT)
                 .addAction(R.drawable.ic_baseline_stop_24, "STOP SERVICE", stopServicePendingIntent)
                 .setAutoCancel(true)
@@ -385,7 +385,6 @@ class BiscuitService : Service() {
 
             if(lastSpeed > 1.0f && previousUpdateTime > Instant.EPOCH) {
                 val elapsed = (lastut.toEpochMilli() - previousUpdateTime.toEpochMilli())
-                Log.d(TAG, "elapsed $elapsed")
                 movingTime += elapsed
             }
 

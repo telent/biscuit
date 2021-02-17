@@ -8,6 +8,9 @@ import android.os.Bundle
 import android.os.IBinder
 import android.preference.PreferenceManager
 import android.util.Log
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.widget.TextView
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -34,10 +37,35 @@ class BikeActivity : AppCompatActivity() {
     private val mServiceIntent by lazy {
         Intent(applicationContext, BiscuitService::class.java)
     }
+    override fun onCreateOptionsMenu(menu : Menu) :Boolean {
+        val inflater = getMenuInflater()
+        inflater.inflate(R.menu.action_menu, menu)
+        return true
+    }
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        // Handle item selection
+        return when (item.itemId) {
+            R.id.action_refresh -> {
+                Log.d(TAG, "request poll sensors again")
+                true
+            }
+            R.id.action_power_off -> {
+                val stopServiceIntent = Intent(this, BiscuitService::class.java).let {
+                    it.putExtra("stop_service", 1)
+                }
+                Log.d(TAG, ""+stopServiceIntent)
+                startService(stopServiceIntent)
+                finish()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_bike)
+
         val navView: BottomNavigationView = findViewById(R.id.nav_view)
         val navHostFragment =
             supportFragmentManager.findFragmentById(R.id.nav_host_fragment_container)!! as NavHostFragment
@@ -82,6 +110,9 @@ class BikeActivity : AppCompatActivity() {
         super.onResume()
         ensureLocationPermission(1)
         ensureServiceRunning(mServiceIntent)
+        // XXX maybe signal the service to attempt to reconnect sensors
+        // if they're not running
+    }
     }
 
     /** Defines callbacks for service binding, passed to bindService()  */
