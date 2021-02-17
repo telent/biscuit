@@ -9,17 +9,16 @@ It started life as a fork of https://github.com/starryalley/CSC_BLE_Bridge/
 
 tl;dr All the things
 
-- some way to retry ANT scanning if it times out
 - prettify the UI
 - move sensor status into the sensors tab, switch to it when not TRACKING status
+- show current track on map
+- allow select some previous track & show on map
 - downloaded recorded tracks, ideally as GPX
 - better app icon (some day)
-- 
 
 
 ## Note to nixpkgs users
 
 NIXPKGS_ALLOW_UNFREE=1  nix-shell -p firefox -p android-studio --run "android-studio ."
 
-![](Screenshot_20210216-230914_Biscuit.png)
-
+![](Screenshot.png)
