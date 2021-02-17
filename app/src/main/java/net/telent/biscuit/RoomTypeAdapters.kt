@@ -7,8 +7,8 @@ class RoomTypeAdapters {
     companion object {
         @TypeConverter
         @JvmStatic
-        fun fromInstant(value: Instant): Long {
-            return value.toEpochMilli()
+        fun fromInstant(value: Instant?): Long? {
+            return value?.toEpochMilli() ?: null
         }
 
         @TypeConverter

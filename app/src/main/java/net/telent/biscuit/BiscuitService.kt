@@ -378,6 +378,7 @@ class BiscuitService : Service() {
 
     private val updaterThread = thread(start = false){
         var previousUpdateTime = Instant.EPOCH
+        db.sessionDao().start(Instant.now())
         while(antInitialized) {
             val lastut = lastUpdateTime
             val isChanged = lastut > previousUpdateTime

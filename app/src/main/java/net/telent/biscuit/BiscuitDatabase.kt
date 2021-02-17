@@ -19,12 +19,15 @@ val migrations = arrayOf(
             database.execSQL("alter table trackpoint add column movingtime (integer)")
         }
     }
+    // 3-4 is a create table
 )
 
-@Database(entities = [ Trackpoint::class ], version = 2, exportSchema = false)
+@Database(entities = [ Trackpoint::class, Session::class ],
+        version = 4, exportSchema = false)
 @TypeConverters(RoomTypeAdapters::class)
 abstract class BiscuitDatabase : RoomDatabase() {
     abstract fun trackpointDao(): TrackpointDao
+    abstract fun sessionDao(): SessionDao
 
     companion object {
         @Volatile
