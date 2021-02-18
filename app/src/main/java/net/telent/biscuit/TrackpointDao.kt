@@ -10,7 +10,7 @@ interface TrackpointDao {
     @Query("SELECT * from trackpoint")
     fun getAll(): List<Trackpoint>
 
-    @Query("SELECT * from trackpoint where ts > :startTime and ts < :endTime")
+    @Query("SELECT * from trackpoint where ts >= :startTime and ts < :endTime")
     fun getBetween(startTime: Instant, endTime: Instant): List<Trackpoint>
 
     @Insert
