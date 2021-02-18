@@ -9,17 +9,21 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 val migrations = arrayOf(
-    object:  Migration(1,2) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL("alter table trackpoint add column revs (integer)")
+        object:  Migration(1,2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("alter table trackpoint add column revs integer")
+            }
+        },
+        object:  Migration(2,3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("alter table trackpoint add column movingtime integer")
+            }
+        },
+        object:  Migration(3,4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // 3-4 is a create table
+            }
         }
-    },
-    object:  Migration(2,3) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL("alter table trackpoint add column movingtime (integer)")
-        }
-    }
-    // 3-4 is a create table
 )
 
 @Database(entities = [ Trackpoint::class, Session::class ],
