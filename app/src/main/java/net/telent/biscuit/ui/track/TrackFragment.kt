@@ -10,6 +10,7 @@ import net.telent.biscuit.R
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
@@ -26,6 +27,11 @@ class TrackFragment : Fragment() {
 //        val textView: TextView = root.findViewById(R.id.text_dashboard)
 
         map = root.findViewById(R.id.map)
+
+        // this will be replaced by our track marker.
+        // we add it first so we know we can replae it at position 0
+        map.overlayManager.add(Polyline())
+
         map.setTileSource(TileSourceFactory.MAPNIK)
         map.zoomController.setZoomInEnabled(true)
         map.zoomController.setZoomOutEnabled(true)
@@ -43,6 +49,11 @@ class TrackFragment : Fragment() {
         model.trackpoint.observe(viewLifecycleOwner, {
             if(it.lat != null && it.lng != null)
                 map.controller.setCenter(GeoPoint(it.lat.toDouble(), it.lng.toDouble()))
+        })
+        model.track.observe(viewLifecycleOwner ,{
+            val line = Polyline()
+            line.setPoints(it)
+            map.overlayManager[0] = line
         })
         return root
     }
