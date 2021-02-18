@@ -1,6 +1,5 @@
 package net.telent.biscuit
 
-import android.os.Parcel
 import android.os.Parcelable
 import androidx.annotation.Nullable
 import androidx.room.ColumnInfo

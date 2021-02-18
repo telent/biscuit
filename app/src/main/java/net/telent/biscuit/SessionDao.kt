@@ -5,7 +5,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import java.time.Instant
-import java.util.List;
+import java.util.List
 
 @Dao
 interface SessionDao {
