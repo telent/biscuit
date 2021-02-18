@@ -37,7 +37,7 @@ class BikeActivity : AppCompatActivity() {
         Intent(applicationContext, BiscuitService::class.java)
     }
     override fun onCreateOptionsMenu(menu : Menu) :Boolean {
-        val inflater = getMenuInflater()
+        val inflater = menuInflater
         inflater.inflate(R.menu.action_menu, menu)
         return true
     }
@@ -45,16 +45,12 @@ class BikeActivity : AppCompatActivity() {
         // Handle item selection
         return when (item.itemId) {
             R.id.action_refresh -> {
-                startService(Intent(this, BiscuitService::class.java).let {
-                    it.putExtra("refresh_sensors", 1)
-                })
+                startService(Intent(this, BiscuitService::class.java).putExtra("refresh_sensors", 1))
                 Log.d(TAG, "request poll sensors again")
                 true
             }
             R.id.action_power_off -> {
-                val stopServiceIntent = Intent(this, BiscuitService::class.java).let {
-                    it.putExtra("stop_service", 1)
-                }
+                val stopServiceIntent = Intent(this, BiscuitService::class.java).putExtra("stop_service", 1)
                 Log.d(TAG, ""+stopServiceIntent)
                 startService(stopServiceIntent)
                 finish()
