@@ -44,8 +44,6 @@ class HomeFragment : Fragment() {
             val tv_distance: TextView = root.findViewById(R.id.DistanceText)
             val tv_speed: TextView = root.findViewById(R.id.SpeedText)
             val tv_cadence: TextView = root.findViewById(R.id.CadenceText)
-            val tv_speed_state: TextView = root.findViewById(R.id.SpeedState)
-            val tv_cadence_state: TextView = root.findViewById(R.id.CadenceState)
             val tv_time: TextView = root.findViewById(R.id.TimeText)
 
             if (speed >= 0.0f)
