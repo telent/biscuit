@@ -24,7 +24,6 @@ class TrackFragment : Fragment() {
             savedInstanceState: Bundle?
     ): View? {
         val root = inflater.inflate(R.layout.fragment_track, container, false)
-//        val textView: TextView = root.findViewById(R.id.text_dashboard)
 
         map = root.findViewById(R.id.map)
 
