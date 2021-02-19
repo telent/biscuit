@@ -13,8 +13,11 @@ class RoomTypeAdapters {
 
         @TypeConverter
         @JvmStatic
-        fun toInstant(value: Long):Instant {
-            return Instant.ofEpochMilli(value)
+        fun toInstant(value: Long?) :Instant? {
+            if(value == null)
+                return value
+            else
+                return Instant.ofEpochMilli(value )
         }
     }
 }
