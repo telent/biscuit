@@ -453,7 +453,7 @@ class BiscuitService : Service() {
                     override fun onLocationChanged(loc: Location) {
                         lastLocation = loc
                         lastUpdateTime = Instant.ofEpochMilli(loc.time)
-                        Log.d(TAG, "" + loc)
+                        Log.d(TAG, "locationChanged" + loc)
                     }
                 })
     }
