@@ -93,9 +93,26 @@ abstract class SpeedSensor : Sensor("speed") {
     }
 }
 
+abstract class CadenceSensor : Sensor("cadence") {
+    fun startSearch(context: Context) {
+        startSearchBy(context) {
+            AntPlusBikeCadencePcc.requestAccess(context, 0, 0, false,
+                    resultReceiver, stateChangeReceiver)
+        }
+    }
+    abstract fun subscribeToEvents(pcc: AntPlusBikeCadencePcc)
+    private val resultReceiver: IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = IPluginAccessResultReceiver<AntPlusBikeCadencePcc> { result, resultCode, initialDeviceState ->
+        if(initialDeviceState != null)
+            this@CadenceSensor.state = stateFromAnt(initialDeviceState)
+        if (resultCode == RequestAccessResult.SUCCESS) {
+            subscribeToEvents(result!!)
+        }
+    }
+}
+
 data class Sensors(
         val speed : SpeedSensor,
-        var cadence : Sensor = Sensor("cadence"),
+        var cadence : CadenceSensor,
         var stride : Sensor = Sensor("stride"),
         var hr : Sensor = Sensor("hr"),
 ) {
@@ -108,8 +125,8 @@ data class Sensors(
 }
 
 class BiscuitService : Service() {
-    // Ant+ sensors
     private var bsdPcc: AntPlusBikeSpeedDistancePcc? = null
+
     private val speedSensor = object : SpeedSensor() {
         override fun subscribeToEvents(pcc : AntPlusBikeSpeedDistancePcc) {
             pcc.subscribeCalculatedSpeedEvent(object : CalculatedSpeedReceiver(BigDecimal("2.205")) {
@@ -123,11 +140,9 @@ class BiscuitService : Service() {
                 //eventFlags - Informational flags about the event.
                 //timestampOfLastEvent - Sensor reported time counter value of last distance or speed computation (up to 1/200s accuracy). Units: s. Rollover: Every ~46 quadrillion s (~1.5 billion years).
                 //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
-                Log.v("sensor", "=> BSD: Cumulative revolution:$cumulativeRevolutions, lastEventTime:$timestampOfLastEvent")
                 cumulativeWheelRevolution = cumulativeRevolutions
                 lastWheelEventTime = ((timestampOfLastEvent.toInt().toDouble() * 1024.0).toInt())
                 lastSpeedTimestamp = estTimestamp
-                Log.d("sensor","wheel timestamp $estTimestamp")
                 lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
 //            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
@@ -140,8 +155,27 @@ class BiscuitService : Service() {
 //            }
         }
     }
+    private val cadenceSensor = object : CadenceSensor() {
+        override fun subscribeToEvents(pcc: AntPlusBikeCadencePcc) {
+            pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
+                lastCadence = calculatedCadence.toInt()
+            }
+            pcc.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
+                cumulativeCrankRevolution = cumulativeRevolutions
+                lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
+                lastCadenceTimestamp = estTimestamp
+                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
+            }
+//            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
+//                // reconnect speed sensor as a combined sensor
+//                combinedSensorConnected = true
+//                sensors.speed.startSearch(this@BiscuitService)
+//            }
 
-    var sensors = Sensors(speed  = speedSensor)
+        }
+    }
+
+    private var sensors = Sensors(speed  = speedSensor, cadence = cadenceSensor)
 
     // last wheel and crank (speed/cadence) information to send to CSCProfile
     private var cumulativeWheelRevolution: Long = 0
@@ -182,41 +216,6 @@ class BiscuitService : Service() {
         sendBroadcast(i)
     }
 
-    private val mBCResultReceiver: IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = object : IPluginAccessResultReceiver<AntPlusBikeCadencePcc> {
-        // Handle the result, connecting to events on success or reporting
-        // failure to user.
-        override fun onResultReceived(result: AntPlusBikeCadencePcc?,
-                                      resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
-            if (resultCode == RequestAccessResult.SUCCESS) {
-                if(result != null) Log.d(TAG, result.deviceName + ": " + initialDeviceState)
-                subscribeToEvents(result!!)
-            } else if (resultCode == RequestAccessResult.USER_CANCELLED) {
-                Log.d(TAG, "BC Closed:$resultCode")
-            } else {
-                Log.w(TAG, "BC state changed:$initialDeviceState, resultCode:$resultCode")
-            }
-            sendDeviceState("bc_service_status", initialDeviceState, resultCode)
-        }
-
-        private fun subscribeToEvents(bcPcc: AntPlusBikeCadencePcc) {
-            bcPcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
-                lastCadence = calculatedCadence.toInt()
-                Log.v(TAG, "=> BC: last $lastCadence")
-            }
-            bcPcc.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
-                Log.v(TAG, "=> BC: Cumulative revolution:$cumulativeRevolutions, lastEventTime:$timestampOfLastEvent")
-                cumulativeCrankRevolution = cumulativeRevolutions
-                lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
-                lastCadenceTimestamp = estTimestamp
-                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-            }
-            if (bcPcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
-                // reconnect speed sensor as a combined sensor
-                combinedSensorConnected = true
-                sensors.speed.startSearch(this@BiscuitService)
-            }
-        }
-    }
     private val mHRResultReceiver: IPluginAccessResultReceiver<AntPlusHeartRatePcc> = object : IPluginAccessResultReceiver<AntPlusHeartRatePcc> {
         override fun onResultReceived(result: AntPlusHeartRatePcc?, resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
             if (resultCode == RequestAccessResult.SUCCESS) {
@@ -341,7 +340,6 @@ class BiscuitService : Service() {
         }
     }
 
-    private val mBCDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.CyclingCadence)
     private val mHRDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.HR)
     private val mSSDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.StrideBasedSpeedAndDistance)
 
@@ -546,10 +544,7 @@ class BiscuitService : Service() {
     }
 
     private fun startCadenceSensorSearch() {
-        sensors.cadence.startSearchBy(this) {
-            AntPlusBikeCadencePcc.requestAccess(this, 0, 0, false,
-                    mBCResultReceiver, mBCDeviceStateChangeReceiver)
-        }
+        sensors.cadence.startSearch(this)
     }
 
     private fun startHRSensorSearch() {
@@ -590,10 +585,5 @@ class BiscuitService : Service() {
         private const val CHANNEL_DEFAULT_IMPORTANCE = "csc_ble_channel"
         private const val MAIN_CHANNEL_NAME = "CscService"
 
-        // 700x23c circumference in meter
-        private val circumference = BigDecimal("2.095")
-
-        // m/s to km/h ratio
-        private val msToKmSRatio = BigDecimal("3.6")
     }
 }
