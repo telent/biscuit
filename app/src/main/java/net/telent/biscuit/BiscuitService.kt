@@ -508,7 +508,7 @@ class BiscuitService : Service() {
      */
     private fun startSpeedSensorSearch() {
         //Release the old access if it exists
-        if (bsdReleaseHandle != null) bsdReleaseHandle!!.close()
+        bsdReleaseHandle?.close()
         combinedSensorConnected = false
 
         // starts speed sensor search
@@ -523,7 +523,7 @@ class BiscuitService : Service() {
      */
     private fun startCadenceSensorSearch() {
         //Release the old access if it exists
-        if (bcReleaseHandle != null) bcReleaseHandle!!.close()
+        bcReleaseHandle?.close()
 
         // starts cadence sensor search
         bcReleaseHandle = AntPlusBikeCadencePcc.requestAccess(this, 0, 0, false,
@@ -538,7 +538,7 @@ class BiscuitService : Service() {
      */
     private fun startHRSensorSearch() {
         //Release the old access if it exists
-        if (hrReleaseHandle != null) hrReleaseHandle!!.close()
+        hrReleaseHandle?.close()
 
         // starts hr sensor search
         hrReleaseHandle = AntPlusHeartRatePcc.requestAccess(this, 0, 0,
@@ -553,7 +553,7 @@ class BiscuitService : Service() {
      * ex. Garmin Foot Pod
      */
     private fun startStrideSdmSensorSearch() {
-        if (ssReleaseHandle != null) ssReleaseHandle!!.close()
+        ssReleaseHandle?.close()
         ssReleaseHandle = AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
                 mSSResultReceiver, mSSDeviceStateChangeReceiver)
         sendDeviceSearching("ss_service_status")
