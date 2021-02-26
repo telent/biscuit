@@ -45,11 +45,8 @@ class BiscuitService : Service() {
     // Ant+ sensors
     private var bsdPcc: AntPlusBikeSpeedDistancePcc? = null
     private var bsdReleaseHandle: PccReleaseHandle<AntPlusBikeSpeedDistancePcc>? = null
-    private var bcPcc: AntPlusBikeCadencePcc? = null
     private var bcReleaseHandle: PccReleaseHandle<AntPlusBikeCadencePcc>? = null
-    private var hrPcc: AntPlusHeartRatePcc? = null
     private var hrReleaseHandle: PccReleaseHandle<AntPlusHeartRatePcc>? = null
-    private var ssPcc: AntPlusStrideSdmPcc? = null
     private var ssReleaseHandle: PccReleaseHandle<AntPlusStrideSdmPcc>? = null
 
     // last wheel and crank (speed/cadence) information to send to CSCProfile
@@ -75,7 +72,7 @@ class BiscuitService : Service() {
     // for onCreate() failure case
     private var antInitialized = false
 
-    fun isFake() : Boolean {
+    private fun isFake() : Boolean {
         return(FLAVOR == "fake")
     }
 
@@ -84,18 +81,14 @@ class BiscuitService : Service() {
 
     // Binder for activities wishing to communicate with this service
     private val binder: IBinder = LocalBinder()
+
     private val mBSDResultReceiver: IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> = object : IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> {
         override fun onResultReceived(result: AntPlusBikeSpeedDistancePcc?,
                                       resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
-            if(this@BiscuitService.isFake()) {
-                sendDeviceState("bsd_service_status", DeviceState.TRACKING,
-                        RequestAccessResult.SUCCESS)
-                return
-            }
             if (resultCode == RequestAccessResult.SUCCESS) {
-                bsdPcc = result
+                bsdPcc = result!!
                 if(result != null) Log.d(TAG, result.deviceName + ": " + initialDeviceState)
-                subscribeToEvents()
+                subscribeToEvents(result)
             } else if (resultCode == RequestAccessResult.USER_CANCELLED) {
                 Log.d(TAG, "BSD Closed:$resultCode")
             } else {
@@ -105,14 +98,15 @@ class BiscuitService : Service() {
             sendDeviceState("bsd_service_status", initialDeviceState, resultCode)
         }
 
-        private fun subscribeToEvents() {
-            bsdPcc!!.subscribeCalculatedSpeedEvent(object : CalculatedSpeedReceiver(circumference) {
+        private fun subscribeToEvents(pcc : AntPlusBikeSpeedDistancePcc) {
+            pcc.subscribeCalculatedSpeedEvent(object : CalculatedSpeedReceiver(circumference) {
                 override fun onNewCalculatedSpeed(estTimestamp: Long,
                                                   eventFlags: EnumSet<EventFlag>, calculatedSpeed: BigDecimal) {
                     lastSpeed = (calculatedSpeed.multiply(msToKmSRatio)).toFloat()
                 }
             })
-            bsdPcc!!.subscribeRawSpeedAndDistanceDataEvent { estTimestamp, _eventFlags, timestampOfLastEvent, cumulativeRevolutions -> //estTimestamp - The estimated timestamp of when this event was triggered. Useful for correlating multiple events and determining when data was sent for more accurate data records.
+            pcc.subscribeRawSpeedAndDistanceDataEvent { estTimestamp, _eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
+                //estTimestamp - The estimated timestamp of when this event was triggered. Useful for correlating multiple events and determining when data was sent for more accurate data records.
                 //eventFlags - Informational flags about the event.
                 //timestampOfLastEvent - Sensor reported time counter value of last distance or speed computation (up to 1/200s accuracy). Units: s. Rollover: Every ~46 quadrillion s (~1.5 billion years).
                 //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
@@ -123,13 +117,11 @@ class BiscuitService : Service() {
                 Log.d(TAG,"wheel timestamp $estTimestamp")
                 lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
-            if (bsdPcc!!.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
-                // reconnect cadence sensor as combined sensor
-                if (bcReleaseHandle != null) {
-                    bcReleaseHandle!!.close()
-                }
+            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
+                // if this is  a combined sensor, subscribe to its cadence events
+                bcReleaseHandle?.close()
                 combinedSensorConnected = true
-                bcReleaseHandle = AntPlusBikeCadencePcc.requestAccess(applicationContext, bsdPcc!!.antDeviceNumber, 0, true,
+                bcReleaseHandle = AntPlusBikeCadencePcc.requestAccess(applicationContext, pcc.antDeviceNumber, 0, true,
                         mBCResultReceiver, mBCDeviceStateChangeReceiver)
             }
         }
@@ -152,15 +144,9 @@ class BiscuitService : Service() {
         // failure to user.
         override fun onResultReceived(result: AntPlusBikeCadencePcc?,
                                       resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
-            if(this@BiscuitService.isFake()) {
-                sendDeviceState("bc_service_status", DeviceState.TRACKING,
-                         RequestAccessResult.SUCCESS)
-                return
-            }
             if (resultCode == RequestAccessResult.SUCCESS) {
-                bcPcc = result
                 if(result != null) Log.d(TAG, result.deviceName + ": " + initialDeviceState)
-                subscribeToEvents()
+                subscribeToEvents(result!!)
             } else if (resultCode == RequestAccessResult.USER_CANCELLED) {
                 Log.d(TAG, "BC Closed:$resultCode")
             } else {
@@ -169,24 +155,23 @@ class BiscuitService : Service() {
             sendDeviceState("bc_service_status", initialDeviceState, resultCode)
         }
 
-        private fun subscribeToEvents() {
-            bcPcc!!.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
+        private fun subscribeToEvents(bcPcc: AntPlusBikeCadencePcc) {
+            bcPcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
                 lastCadence = calculatedCadence.toInt()
+                Log.v(TAG, "=> BC: last $lastCadence")
             }
-            bcPcc!!.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
+            bcPcc.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
                 Log.v(TAG, "=> BC: Cumulative revolution:$cumulativeRevolutions, lastEventTime:$timestampOfLastEvent")
                 cumulativeCrankRevolution = cumulativeRevolutions
                 lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
                 lastCadenceTimestamp = estTimestamp
                 lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
-            if (bcPcc!!.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
+            if (bcPcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
                 // reconnect speed sensor as a combined sensor
-                if (bsdReleaseHandle != null) {
-                    bsdReleaseHandle!!.close()
-                }
+                bsdReleaseHandle?.close()
                 combinedSensorConnected = true
-                bsdReleaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(applicationContext, bcPcc!!.antDeviceNumber, 0, true,
+                bsdReleaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(applicationContext, bcPcc.antDeviceNumber, 0, true,
                         mBSDResultReceiver, mBSDDeviceStateChangeReceiver)
             }
         }
@@ -194,9 +179,8 @@ class BiscuitService : Service() {
     private val mHRResultReceiver: IPluginAccessResultReceiver<AntPlusHeartRatePcc> = object : IPluginAccessResultReceiver<AntPlusHeartRatePcc> {
         override fun onResultReceived(result: AntPlusHeartRatePcc?, resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
             if (resultCode == RequestAccessResult.SUCCESS) {
-                hrPcc = result
                 if(result != null) Log.d(TAG, result.deviceName + ": " + initialDeviceState)
-                subscribeToEvents()
+                subscribeToEvents(result!!)
             } else if (resultCode == RequestAccessResult.USER_CANCELLED) {
                 Log.d(TAG, "HR Closed:$resultCode")
             } else {
@@ -205,8 +189,8 @@ class BiscuitService : Service() {
             sendDeviceState("hr_service_status", initialDeviceState, resultCode)
         }
 
-        private fun subscribeToEvents() {
-            hrPcc!!.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
+        private fun subscribeToEvents(hrPcc: AntPlusHeartRatePcc) {
+            hrPcc.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
                 lastHR = computedHeartRate
                 lastHRTimestamp = estTimestamp
                 lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
@@ -216,9 +200,8 @@ class BiscuitService : Service() {
     private val mSSResultReceiver: IPluginAccessResultReceiver<AntPlusStrideSdmPcc> = object : IPluginAccessResultReceiver<AntPlusStrideSdmPcc> {
         override fun onResultReceived(result: AntPlusStrideSdmPcc?, resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
             if (resultCode == RequestAccessResult.SUCCESS) {
-                ssPcc = result
                 Log.d(TAG, (if (result != null) result.deviceName else "(null)" ) + ": " + initialDeviceState)
-                subscribeToEvents()
+                subscribeToEvents(result!!)
             } else if (resultCode == RequestAccessResult.USER_CANCELLED) {
                 Log.d(TAG, "SS Closed:$resultCode")
             } else {
@@ -227,9 +210,9 @@ class BiscuitService : Service() {
             sendDeviceState("ss_service_status", initialDeviceState, resultCode)
         }
 
-        private fun subscribeToEvents() {
+        private fun subscribeToEvents(ssPcc: AntPlusStrideSdmPcc) {
             // https://www.thisisant.com/developer/ant-plus/device-profiles#528_tab
-            ssPcc!!.subscribeStrideCountEvent(object : IStrideCountReceiver {
+            ssPcc.subscribeStrideCountEvent(object : IStrideCountReceiver {
                 private val strideList = LinkedList<Pair<Long, Long>>()
                 private val lock = Semaphore(1)
                 override fun onNewStrideCount(estTimestamp: Long, eventFlags: EnumSet<EventFlag>, cumulativeStrides: Long) {
@@ -275,12 +258,12 @@ class BiscuitService : Service() {
                     } else ((cumulativeStrides - p.second) * (60_000 / elapsedTimeMs)) as Long
                 }
             })
-            ssPcc!!.subscribeDistanceEvent { estTimestamp, eventFlags, distance ->
+            ssPcc.subscribeDistanceEvent { estTimestamp, eventFlags, distance ->
                 lastSSDistanceTimestamp = estTimestamp
                 lastSSDistance = distance.toLong()
                 lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
             }
-            ssPcc!!.subscribeInstantaneousSpeedEvent { estTimestamp, eventFlags, instantaneousSpeed ->
+            ssPcc.subscribeInstantaneousSpeedEvent { estTimestamp, eventFlags, instantaneousSpeed ->
                 lastSSDistanceTimestamp = estTimestamp
                 lastSSSpeed = instantaneousSpeed.toFloat()
                 lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
