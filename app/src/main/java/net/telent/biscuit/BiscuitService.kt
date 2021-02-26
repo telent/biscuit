@@ -453,10 +453,10 @@ class BiscuitService : Service() {
         if (antInitialized) {
             antInitialized = false
             // stop ANT+
-            if (bsdReleaseHandle != null) bsdReleaseHandle!!.close()
-            if (bcReleaseHandle != null) bcReleaseHandle!!.close()
-            if (hrReleaseHandle != null) hrReleaseHandle!!.close()
-            if (ssReleaseHandle != null) ssReleaseHandle!!.close()
+            bsdReleaseHandle?.close()
+            bcReleaseHandle?.close()
+            hrReleaseHandle?.close()
+            ssReleaseHandle?.close()
             combinedSensorConnected = false
         }
     }
