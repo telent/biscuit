@@ -29,8 +29,10 @@ import com.dsi.ant.plugins.antplus.pcc.AntPlusStrideSdmPcc.IStrideCountReceiver
 import com.dsi.ant.plugins.antplus.pcc.defines.DeviceState
 import com.dsi.ant.plugins.antplus.pcc.defines.EventFlag
 import com.dsi.ant.plugins.antplus.pcc.defines.RequestAccessResult
+import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc.IDeviceStateChangeReceiver
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc.IPluginAccessResultReceiver
+import com.dsi.ant.plugins.antplus.pccbase.AntPlusCommonPcc
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle
 import java.lang.Thread.sleep
 import java.math.BigDecimal
@@ -41,13 +43,41 @@ import kotlin.concurrent.thread
 import kotlin.math.max
 import kotlin.math.sin
 
+class Sensor(val name: String) {
+    enum class SensorState { ABSENT, SEARCHING, PRESENT, BROKEN }
+    var state : SensorState = SensorState.ABSENT
+    var pcc : AntPlusCommonPcc? = null
+    private var releaseHandle : PccReleaseHandle<*>? = null
+    fun startSearch(f: () -> PccReleaseHandle<*>)
+    {
+        this.releaseHandle?.close()
+        this.releaseHandle = f()
+        Log.d("sensor", "started search for $name")
+    }
+    fun close(){
+        this.releaseHandle?.close()
+    }
+
+}
+
+data class Sensors(
+        var speed : Sensor = Sensor("speed"),
+        var cadence : Sensor = Sensor("cadence"),
+        var stride : Sensor = Sensor("stride"),
+        var hr : Sensor = Sensor("hr"),
+) {
+    fun close() {
+        speed.close()
+        cadence.close()
+        stride.close()
+        hr.close()
+    }
+}
+
 class BiscuitService : Service() {
     // Ant+ sensors
     private var bsdPcc: AntPlusBikeSpeedDistancePcc? = null
-    private var bsdReleaseHandle: PccReleaseHandle<AntPlusBikeSpeedDistancePcc>? = null
-    private var bcReleaseHandle: PccReleaseHandle<AntPlusBikeCadencePcc>? = null
-    private var hrReleaseHandle: PccReleaseHandle<AntPlusHeartRatePcc>? = null
-    private var ssReleaseHandle: PccReleaseHandle<AntPlusStrideSdmPcc>? = null
+    private var sensors = Sensors()
 
     // last wheel and crank (speed/cadence) information to send to CSCProfile
     private var cumulativeWheelRevolution: Long = 0
@@ -119,10 +149,11 @@ class BiscuitService : Service() {
             }
             if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
                 // if this is  a combined sensor, subscribe to its cadence events
-                bcReleaseHandle?.close()
                 combinedSensorConnected = true
-                bcReleaseHandle = AntPlusBikeCadencePcc.requestAccess(applicationContext, pcc.antDeviceNumber, 0, true,
-                        mBCResultReceiver, mBCDeviceStateChangeReceiver)
+                sensors.cadence.startSearch {
+                    AntPlusBikeCadencePcc.requestAccess(applicationContext, pcc.antDeviceNumber, 0, true,
+                            mBCResultReceiver, mBCDeviceStateChangeReceiver)
+                }
             }
         }
     }
@@ -169,10 +200,11 @@ class BiscuitService : Service() {
             }
             if (bcPcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
                 // reconnect speed sensor as a combined sensor
-                bsdReleaseHandle?.close()
                 combinedSensorConnected = true
-                bsdReleaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(applicationContext, bcPcc.antDeviceNumber, 0, true,
-                        mBSDResultReceiver, mBSDDeviceStateChangeReceiver)
+                sensors.speed.startSearch {
+                    AntPlusBikeSpeedDistancePcc.requestAccess(applicationContext, bcPcc.antDeviceNumber, 0, true,
+                            mBSDResultReceiver, mBSDDeviceStateChangeReceiver)
+                }
             }
         }
     }
@@ -453,10 +485,7 @@ class BiscuitService : Service() {
         if (antInitialized) {
             antInitialized = false
             // stop ANT+
-            bsdReleaseHandle?.close()
-            bcReleaseHandle?.close()
-            hrReleaseHandle?.close()
-            ssReleaseHandle?.close()
+            sensors.close()
             combinedSensorConnected = false
         }
     }
@@ -503,60 +532,38 @@ class BiscuitService : Service() {
         antInitialized = true
     }
 
-    /**
-     * Initializes the speed sensor search
-     */
     private fun startSpeedSensorSearch() {
-        //Release the old access if it exists
-        bsdReleaseHandle?.close()
         combinedSensorConnected = false
 
-        // starts speed sensor search
-        bsdReleaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(this, 0, 0, false,
+        sensors.speed.startSearch {
+            AntPlusBikeSpeedDistancePcc.requestAccess(this, 0, 0, false,
                 mBSDResultReceiver, mBSDDeviceStateChangeReceiver)
-
-        sendDeviceSearching("bsd_service_status")
+        }
     }
 
-    /**
-     * Initializes the cadence sensor search
-     */
     private fun startCadenceSensorSearch() {
-        //Release the old access if it exists
-        bcReleaseHandle?.close()
-
-        // starts cadence sensor search
-        bcReleaseHandle = AntPlusBikeCadencePcc.requestAccess(this, 0, 0, false,
-                mBCResultReceiver, mBCDeviceStateChangeReceiver)
-
-        // send initial state for UI
-        sendDeviceSearching("bc_service_status")
+        sensors.cadence.startSearch {
+            AntPlusBikeCadencePcc.requestAccess(this, 0, 0, false,
+                    mBCResultReceiver, mBCDeviceStateChangeReceiver)
+        }
     }
 
-    /**
-     * Initializes the HR  sensor search
-     */
     private fun startHRSensorSearch() {
-        //Release the old access if it exists
-        hrReleaseHandle?.close()
-
-        // starts hr sensor search
-        hrReleaseHandle = AntPlusHeartRatePcc.requestAccess(this, 0, 0,
-                mHRResultReceiver, mHRDeviceStateChangeReceiver)
-
-        sendDeviceSearching("hr_service_status")
+        sensors.hr.startSearch {
+            AntPlusHeartRatePcc.requestAccess(this, 0, 0,
+                    mHRResultReceiver, mHRDeviceStateChangeReceiver)
+        }
     }
-
     /**
      * Initialized the Stride SDM (Stride based Speed and Distance Monitor) sensor search
      *
      * ex. Garmin Foot Pod
      */
     private fun startStrideSdmSensorSearch() {
-        ssReleaseHandle?.close()
-        ssReleaseHandle = AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
-                mSSResultReceiver, mSSDeviceStateChangeReceiver)
-        sendDeviceSearching("ss_service_status")
+        sensors.stride.startSearch {
+            AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
+                    mSSResultReceiver, mSSDeviceStateChangeReceiver)
+        }
     }
 
     override fun onBind(intent: Intent): IBinder {
