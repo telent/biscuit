@@ -76,20 +76,45 @@ open class Sensor(val name: String) {
     }
 }
 
-abstract class SpeedSensor : Sensor("speed") {
+class SpeedSensor : Sensor("speed") {
+    // what if we put the speed etc properties in here instead of in BiscuitService?
+    var speed = 0.0
+    var distance = 0.0
     fun startSearch(context: Context) {
         startSearchBy(context) {
             AntPlusBikeSpeedDistancePcc.requestAccess(context, 0, 0, false,
                     resultReceiver, stateChangeReceiver)
         }
     }
-    abstract fun subscribeToEvents(pcc: AntPlusBikeSpeedDistancePcc)
     private val resultReceiver: IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> = IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> { result, resultCode, initialDeviceState ->
         if(initialDeviceState != null)
             this@SpeedSensor.state = stateFromAnt(initialDeviceState)
         if (resultCode == RequestAccessResult.SUCCESS) {
             subscribeToEvents(result!!)
         }
+    }
+    private fun subscribeToEvents(pcc : AntPlusBikeSpeedDistancePcc) {
+        pcc.subscribeCalculatedSpeedEvent(object : CalculatedSpeedReceiver(BigDecimal("2.205")) {
+            override fun onNewCalculatedSpeed(estTimestamp: Long,
+                                              eventFlags: EnumSet<EventFlag>, calculatedSpeed: BigDecimal) {
+                speed = calculatedSpeed.toDouble() * 3.6
+            }
+        })
+        pcc.subscribeRawSpeedAndDistanceDataEvent { estTimestamp, _eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
+            //estTimestamp - The estimated timestamp of when this event was triggered. Useful for correlating multiple events and determining when data was sent for more accurate data records.
+            //eventFlags - Informational flags about the event.
+            //timestampOfLastEvent - Sensor reported time counter value of last distance or speed computation (up to 1/200s accuracy). Units: s. Rollover: Every ~46 quadrillion s (~1.5 billion years).
+            //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
+            distance = cumulativeRevolutions.toDouble() * 2.205
+        }
+//            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
+//                // if this is  a combined sensor, subscribe to its cadence events
+//                combinedSensorConnected = true
+//                sensors.cadence.startSearchBy(this@BiscuitService) {
+//                    com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc.requestAccess(applicationContext, pcc.antDeviceNumber, 0, true,
+//                            mBCResultReceiver, mBCDeviceStateChangeReceiver)
+//                }
+//            }
     }
 }
 
@@ -129,7 +154,7 @@ abstract class HeartSensor : Sensor("heart") {
 }
 
 data class Sensors(
-        val speed : SpeedSensor,
+        val speed : SpeedSensor = SpeedSensor(),
         var cadence : CadenceSensor,
         var stride : Sensor = Sensor("stride"),
         var heart: HeartSensor
@@ -145,34 +170,6 @@ data class Sensors(
 class BiscuitService : Service() {
     private var bsdPcc: AntPlusBikeSpeedDistancePcc? = null
 
-    private val speedSensor = object : SpeedSensor() {
-        override fun subscribeToEvents(pcc : AntPlusBikeSpeedDistancePcc) {
-            pcc.subscribeCalculatedSpeedEvent(object : CalculatedSpeedReceiver(BigDecimal("2.205")) {
-                override fun onNewCalculatedSpeed(estTimestamp: Long,
-                                                  eventFlags: EnumSet<EventFlag>, calculatedSpeed: BigDecimal) {
-                    lastSpeed= (calculatedSpeed * BigDecimal("3.6")).toFloat()
-                }
-            })
-            pcc.subscribeRawSpeedAndDistanceDataEvent { estTimestamp, _eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
-                //estTimestamp - The estimated timestamp of when this event was triggered. Useful for correlating multiple events and determining when data was sent for more accurate data records.
-                //eventFlags - Informational flags about the event.
-                //timestampOfLastEvent - Sensor reported time counter value of last distance or speed computation (up to 1/200s accuracy). Units: s. Rollover: Every ~46 quadrillion s (~1.5 billion years).
-                //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
-                cumulativeWheelRevolution = cumulativeRevolutions
-                lastWheelEventTime = ((timestampOfLastEvent.toInt().toDouble() * 1024.0).toInt())
-                lastSpeedTimestamp = estTimestamp
-                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-            }
-//            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
-//                // if this is  a combined sensor, subscribe to its cadence events
-//                combinedSensorConnected = true
-//                sensors.cadence.startSearchBy(this@BiscuitService) {
-//                    com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc.requestAccess(applicationContext, pcc.antDeviceNumber, 0, true,
-//                            mBCResultReceiver, mBCDeviceStateChangeReceiver)
-//                }
-//            }
-        }
-    }
     private val cadenceSensor = object : CadenceSensor() {
         override fun subscribeToEvents(pcc: AntPlusBikeCadencePcc) {
             pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
@@ -203,14 +200,12 @@ class BiscuitService : Service() {
         }
     }
 
-    private var sensors = Sensors(speed = speedSensor, cadence = cadenceSensor, heart = heartSensor)
+    private var sensors = Sensors(cadence = cadenceSensor, heart = heartSensor)
 
     // last wheel and crank (speed/cadence) information to send to CSCProfile
     private var cumulativeWheelRevolution: Long = 0
     private var cumulativeCrankRevolution: Long = 0
-    private var lastWheelEventTime = 0
     private var lastCrankEventTime = 0
-    private var lastSpeedTimestamp: Long = 0
     private var lastCadenceTimestamp: Long = 0
     private var lastHRTimestamp: Long = 0
     private var lastSSDistanceTimestamp: Long = 0
@@ -513,10 +508,10 @@ class BiscuitService : Service() {
                 timestamp = Instant.now(),
                 lng = lastLocation?.longitude,
                 lat = lastLocation?.latitude,
-                speed = lastSpeed,
+                speed = sensors.speed.speed.toFloat(),
                 cadence = lastCadence.toFloat(),
                 movingTime = movingTime,
-                wheelRevolutions = cumulativeWheelRevolution
+                wheelRevolutions = (sensors.speed.distance / 2.2).toLong()
         )
         if(writeDatabase) {
             db.trackpointDao().addPoint(tp)
