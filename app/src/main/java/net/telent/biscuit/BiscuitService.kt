@@ -110,17 +110,35 @@ abstract class CadenceSensor : Sensor("cadence") {
     }
 }
 
+abstract class HeartSensor : Sensor("heart") {
+    fun startSearch(context: Context) {
+        startSearchBy(context) {
+            AntPlusHeartRatePcc.requestAccess(context, 0, 0,
+                    resultReceiver, stateChangeReceiver)
+        }
+    }
+    abstract fun subscribeToEvents(pcc: AntPlusHeartRatePcc)
+
+    private val resultReceiver : IPluginAccessResultReceiver<AntPlusHeartRatePcc> = IPluginAccessResultReceiver<AntPlusHeartRatePcc> { result, resultCode, initialDeviceState ->
+        if (initialDeviceState != null)
+            this@HeartSensor.state = stateFromAnt(initialDeviceState)
+        if (resultCode == RequestAccessResult.SUCCESS) {
+            subscribeToEvents(result!!)
+        }
+    }
+}
+
 data class Sensors(
         val speed : SpeedSensor,
         var cadence : CadenceSensor,
         var stride : Sensor = Sensor("stride"),
-        var hr : Sensor = Sensor("hr"),
+        var heart: HeartSensor
 ) {
     fun close() {
         speed.close()
         cadence.close()
         stride.close()
-        hr.close()
+        heart.close()
     }
 }
 
@@ -175,7 +193,17 @@ class BiscuitService : Service() {
         }
     }
 
-    private var sensors = Sensors(speed  = speedSensor, cadence = cadenceSensor)
+    private val heartSensor = object : HeartSensor() {
+        override fun subscribeToEvents(pcc: AntPlusHeartRatePcc) {
+            pcc.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
+                lastHR = computedHeartRate
+                lastHRTimestamp = estTimestamp
+                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
+            }
+        }
+    }
+
+    private var sensors = Sensors(speed = speedSensor, cadence = cadenceSensor, heart = heartSensor)
 
     // last wheel and crank (speed/cadence) information to send to CSCProfile
     private var cumulativeWheelRevolution: Long = 0
@@ -214,28 +242,6 @@ class BiscuitService : Service() {
         val i = Intent(INTENT_NAME)
         i.putExtra(name, "$initialDeviceState - $resultCode")
         sendBroadcast(i)
-    }
-
-    private val mHRResultReceiver: IPluginAccessResultReceiver<AntPlusHeartRatePcc> = object : IPluginAccessResultReceiver<AntPlusHeartRatePcc> {
-        override fun onResultReceived(result: AntPlusHeartRatePcc?, resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
-            if (resultCode == RequestAccessResult.SUCCESS) {
-                if(result != null) Log.d(TAG, result.deviceName + ": " + initialDeviceState)
-                subscribeToEvents(result!!)
-            } else if (resultCode == RequestAccessResult.USER_CANCELLED) {
-                Log.d(TAG, "HR Closed:$resultCode")
-            } else {
-                Log.w(TAG, "HR state changed:$initialDeviceState, resultCode:$resultCode")
-            }
-            sendDeviceState("hr_service_status", initialDeviceState, resultCode)
-        }
-
-        private fun subscribeToEvents(hrPcc: AntPlusHeartRatePcc) {
-            hrPcc.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
-                lastHR = computedHeartRate
-                lastHRTimestamp = estTimestamp
-                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-            }
-        }
     }
     private val mSSResultReceiver: IPluginAccessResultReceiver<AntPlusStrideSdmPcc> = object : IPluginAccessResultReceiver<AntPlusStrideSdmPcc> {
         override fun onResultReceived(result: AntPlusStrideSdmPcc?, resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
@@ -340,7 +346,6 @@ class BiscuitService : Service() {
         }
     }
 
-    private val mHRDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.HR)
     private val mSSDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.StrideBasedSpeedAndDistance)
 
     private val db by lazy {
@@ -534,10 +539,7 @@ class BiscuitService : Service() {
         combinedSensorConnected = false
         sensors.speed.startSearch(this)
         sensors.cadence.startSearch(this)
-        sensors.hr.startSearchBy(this) {
-            AntPlusHeartRatePcc.requestAccess(this, 0, 0,
-                    mHRResultReceiver, mHRDeviceStateChangeReceiver)
-        }
+        sensors.heart.startSearch(this)
         sensors.stride.startSearchBy(this) {
             AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
                     mSSResultReceiver, mSSDeviceStateChangeReceiver)
