@@ -531,38 +531,18 @@ class BiscuitService : Service() {
             Log.d(TAG, "faking ANT+ access")
         else
             Log.d(TAG, "requesting ANT+ access")
-        startSpeedSensorSearch()
-        startCadenceSensorSearch()
-        startHRSensorSearch()
-        startStrideSdmSensorSearch()
-        antInitialized = true
-    }
-
-    private fun startSpeedSensorSearch() {
         combinedSensorConnected = false
         sensors.speed.startSearch(this)
-    }
-
-    private fun startCadenceSensorSearch() {
         sensors.cadence.startSearch(this)
-    }
-
-    private fun startHRSensorSearch() {
         sensors.hr.startSearchBy(this) {
             AntPlusHeartRatePcc.requestAccess(this, 0, 0,
                     mHRResultReceiver, mHRDeviceStateChangeReceiver)
         }
-    }
-    /**
-     * Initialized the Stride SDM (Stride based Speed and Distance Monitor) sensor search
-     *
-     * ex. Garmin Foot Pod
-     */
-    private fun startStrideSdmSensorSearch() {
         sensors.stride.startSearchBy(this) {
             AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
                     mSSResultReceiver, mSSDeviceStateChangeReceiver)
         }
+        antInitialized = true
     }
 
     override fun onBind(intent: Intent): IBinder {
