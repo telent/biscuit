@@ -39,8 +39,6 @@ import java.time.Instant
 import java.util.*
 import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
-import kotlin.math.max
-import kotlin.math.sin
 
 open class Sensor(val name: String) {
     enum class SensorState { ABSENT, SEARCHING, PRESENT, BROKEN }
@@ -118,20 +116,39 @@ class SpeedSensor : Sensor("speed") {
     }
 }
 
-abstract class CadenceSensor : Sensor("cadence") {
+class CadenceSensor : Sensor("cadence") {
+    var cadence = 0.0
+
     fun startSearch(context: Context) {
         startSearchBy(context) {
             AntPlusBikeCadencePcc.requestAccess(context, 0, 0, false,
                     resultReceiver, stateChangeReceiver)
         }
     }
-    abstract fun subscribeToEvents(pcc: AntPlusBikeCadencePcc)
+
     private val resultReceiver: IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = IPluginAccessResultReceiver<AntPlusBikeCadencePcc> { result, resultCode, initialDeviceState ->
         if(initialDeviceState != null)
             this@CadenceSensor.state = stateFromAnt(initialDeviceState)
         if (resultCode == RequestAccessResult.SUCCESS) {
             subscribeToEvents(result!!)
         }
+    }
+    private fun subscribeToEvents(pcc: AntPlusBikeCadencePcc) {
+        pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
+            cadence = calculatedCadence.toDouble()
+        }
+//        pcc.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
+//            cumulativeCrankRevolution = cumulativeRevolutions
+//            lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
+//            lastCadenceTimestamp = estTimestamp
+//            lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
+//        }
+//            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
+//                // reconnect speed sensor as a combined sensor
+//                combinedSensorConnected = true
+//                sensors.speed.startSearch(this@BiscuitService)
+//            }
+
     }
 }
 
@@ -155,7 +172,7 @@ abstract class HeartSensor : Sensor("heart") {
 
 data class Sensors(
         val speed : SpeedSensor = SpeedSensor(),
-        var cadence : CadenceSensor,
+        var cadence : CadenceSensor = CadenceSensor(),
         var stride : Sensor = Sensor("stride"),
         var heart: HeartSensor
 ) {
@@ -170,26 +187,6 @@ data class Sensors(
 class BiscuitService : Service() {
     private var bsdPcc: AntPlusBikeSpeedDistancePcc? = null
 
-    private val cadenceSensor = object : CadenceSensor() {
-        override fun subscribeToEvents(pcc: AntPlusBikeCadencePcc) {
-            pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
-                lastCadence = calculatedCadence.toInt()
-            }
-            pcc.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
-                cumulativeCrankRevolution = cumulativeRevolutions
-                lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
-                lastCadenceTimestamp = estTimestamp
-                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-            }
-//            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
-//                // reconnect speed sensor as a combined sensor
-//                combinedSensorConnected = true
-//                sensors.speed.startSearch(this@BiscuitService)
-//            }
-
-        }
-    }
-
     private val heartSensor = object : HeartSensor() {
         override fun subscribeToEvents(pcc: AntPlusHeartRatePcc) {
             pcc.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
@@ -200,18 +197,12 @@ class BiscuitService : Service() {
         }
     }
 
-    private var sensors = Sensors(cadence = cadenceSensor, heart = heartSensor)
+    private var sensors = Sensors(heart = heartSensor)
 
-    // last wheel and crank (speed/cadence) information to send to CSCProfile
-    private var cumulativeWheelRevolution: Long = 0
-    private var cumulativeCrankRevolution: Long = 0
-    private var lastCrankEventTime = 0
-    private var lastCadenceTimestamp: Long = 0
     private var lastHRTimestamp: Long = 0
     private var lastSSDistanceTimestamp: Long = 0
     private var lastSSStrideCountTimestamp: Long = 0
     private var lastSpeed = 0f
-    private var lastCadence = 0
     private var lastHR = 0
     private var lastSSDistance: Long = 0
     private var lastSSSpeed = 0f
@@ -418,25 +409,25 @@ class BiscuitService : Service() {
         }
     }
 
-    private val fakeSensorThread = thread(start = false) {
-        while (antInitialized) {
-            sleep(40)
-            val now = Instant.now()
-            val speed = 30 * sin(now.toEpochMilli().toDouble() / 12000.0) - 1
-            if(lastSpeed > 0 || speed >= 0) {
-                synchronized(this) {
-                    lastSpeed = max(speed, 0.0).toFloat()
-                    if (lastSpeed > 1.0f) {
-                        cumulativeWheelRevolution += 1
-                        lastCadence = if (Math.random() > 0.3) lastSpeed.toInt() else 0
-                    } else {
-                        lastCadence = 0
-                    }
-                    lastUpdateTime = now
-                }
-            }
-        }
-    }
+//    private val fakeSensorThread = thread(start = false) {
+//        while (antInitialized) {
+//            sleep(40)
+//            val now = Instant.now()
+//            val speed = 30 * sin(now.toEpochMilli().toDouble() / 12000.0) - 1
+//            if(lastSpeed > 0 || speed >= 0) {
+//                synchronized(this) {
+//                    lastSpeed = max(speed, 0.0).toFloat()
+//                    if (lastSpeed > 1.0f) {
+//                        cumulativeWheelRevolution += 1
+//                        lastCadence = if (Math.random() > 0.3) lastSpeed.toInt() else 0
+//                    } else {
+//                        lastCadence = 0
+//                    }
+//                    lastUpdateTime = now
+//                }
+//            }
+//        }
+//    }
 
     private lateinit var locationManager: LocationManager
 
@@ -454,7 +445,7 @@ class BiscuitService : Service() {
         }
         // ANT+
         initAntPlus()
-        if(this.isFake()) fakeSensorThread.start()
+//        if(this.isFake()) fakeSensorThread.start()
         updaterThread.start()
     }
 
@@ -509,7 +500,7 @@ class BiscuitService : Service() {
                 lng = lastLocation?.longitude,
                 lat = lastLocation?.latitude,
                 speed = sensors.speed.speed.toFloat(),
-                cadence = lastCadence.toFloat(),
+                cadence = sensors.cadence.cadence.toFloat(),
                 movingTime = movingTime,
                 wheelRevolutions = (sensors.speed.distance / 2.2).toLong()
         )
