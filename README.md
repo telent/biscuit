@@ -1,7 +1,7 @@
 # Biscuit
 
-Biscuit is a rudimentary bike computer, supporting ANT+ speed and cadence sensors as well as
-GPS track recording
+Biscuit is a rudimentary bike computer, supporting ANT+ speed and
+cadence sensors as well as GPS track recording
 
 It started life as a fork of https://github.com/starryalley/CSC_BLE_Bridge/
 
@@ -22,3 +22,18 @@ tl;dr All the things
 NIXPKGS_ALLOW_UNFREE=1  nix-shell -p firefox -p android-studio --run "android-studio ."
 
 ![](Screenshot.png)
+
+
+----
+
+
+a sensor has an identity of some kind, e.g. from pcc.getDeviceName() or
+"gps" or something else
+
+we do a sensor search for each supported class of sensor. It publishes its
+search progress so that the UI can be updated
+
+
+
+
+

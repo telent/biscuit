@@ -154,15 +154,17 @@ class BikeActivity : AppCompatActivity() {
     }
 
     private inner class MainActivityReceiver : BroadcastReceiver() {
-
         override fun onReceive(context: Context, intent: Intent) {
-            val trackpoint = intent.getParcelableExtra("trackpoint") ?: Trackpoint(EPOCH, null,null)
-
-            val vm: TrackViewModel  by viewModels()
-            vm.move(trackpoint)
+            val trackpoint : Trackpoint? = intent.getParcelableExtra("trackpoint")
+            val sensors : Array<*>? = intent.getParcelableExtra("sensor_state")
+            if (trackpoint != null) {
+                val vm: TrackViewModel by viewModels()
+                vm.move(trackpoint)
+            }
+            if (sensors != null)
+                Log.d(TAG, "received new sensor state $sensors")
         }
     }
-
     companion object {
         private val TAG = BikeActivity::class.java.simpleName
     }

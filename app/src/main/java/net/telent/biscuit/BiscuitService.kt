@@ -15,30 +15,20 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
-import android.util.Pair
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.media.app.NotificationCompat
-import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeSpeedDistancePcc
-import com.dsi.ant.plugins.antplus.pcc.AntPlusStrideSdmPcc
-import com.dsi.ant.plugins.antplus.pcc.AntPlusStrideSdmPcc.IStrideCountReceiver
-import com.dsi.ant.plugins.antplus.pcc.defines.DeviceState
-import com.dsi.ant.plugins.antplus.pcc.defines.EventFlag
-import com.dsi.ant.plugins.antplus.pcc.defines.RequestAccessResult
-import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc.IDeviceStateChangeReceiver
-import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc.IPluginAccessResultReceiver
 import java.lang.Thread.sleep
 import java.time.Instant
 import java.util.*
-import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
 
 data class Sensors(
-        val speed : SpeedSensor = SpeedSensor(),
-        var cadence : CadenceSensor = CadenceSensor(),
-        var stride : Sensor = Sensor("stride"),
-        var heart: HeartSensor = HeartSensor()
+        val speed : SpeedSensor,
+        var cadence : CadenceSensor,
+        var stride : StrideSensor,
+        var heart: HeartSensor
 ) {
     fun close() {
         speed.close()
@@ -46,19 +36,33 @@ data class Sensors(
         stride.close()
         heart.close()
     }
+    fun startSearch(context : Context) {
+        speed.startSearch(context)
+        cadence.startSearch(context)
+        heart.startSearch(context)
+        stride.startSearch(context)
+    }
 }
 
 class BiscuitService : Service() {
-    private var bsdPcc: AntPlusBikeSpeedDistancePcc? = null
+    private fun reportSensorStatuses() {
+        val payload = arrayOf(
+                sensors.speed.stateReport(),
+                sensors.cadence.stateReport(),
+                sensors.stride.stateReport(),
+                sensors.heart.stateReport())
+        Log.d(TAG, "reporting sensors state $payload")
+        val i = Intent(INTENT_NAME)
+        i.putExtra("state", payload)
+        sendBroadcast(i)
+    }
 
-    private var sensors = Sensors()
+    private var sensors = Sensors(
+            speed = SpeedSensor { s  -> reportSensorStatuses() },
+            cadence = CadenceSensor { s  -> reportSensorStatuses() },
+            stride = StrideSensor { s  -> reportSensorStatuses() },
+            heart = HeartSensor { s  -> reportSensorStatuses() })
 
-    private var lastSSDistanceTimestamp: Long = 0
-    private var lastSSStrideCountTimestamp: Long = 0
-    private var lastSpeed = 0f
-    private var lastSSDistance: Long = 0
-    private var lastSSSpeed = 0f
-    private var lastStridePerMinute: Long = 0
     private var movingTime: Long = 0
 
     private var lastLocation : Location? = null
@@ -75,116 +79,6 @@ class BiscuitService : Service() {
 
     // Binder for activities wishing to communicate with this service
     private val binder: IBinder = LocalBinder()
-
-    private fun sendDeviceState(name: String, initialDeviceState: DeviceState?, resultCode: RequestAccessResult?) {
-        val i = Intent(INTENT_NAME)
-        i.putExtra(name, "$initialDeviceState - $resultCode")
-        sendBroadcast(i)
-    }
-    private val mSSResultReceiver: IPluginAccessResultReceiver<AntPlusStrideSdmPcc> = object : IPluginAccessResultReceiver<AntPlusStrideSdmPcc> {
-        override fun onResultReceived(result: AntPlusStrideSdmPcc?, resultCode: RequestAccessResult?, initialDeviceState: DeviceState?) {
-            if (resultCode == RequestAccessResult.SUCCESS) {
-                Log.d(TAG, (if (result != null) result.deviceName else "(null)" ) + ": " + initialDeviceState)
-                subscribeToEvents(result!!)
-            } else if (resultCode == RequestAccessResult.USER_CANCELLED) {
-                Log.d(TAG, "SS Closed:$resultCode")
-            } else {
-                Log.w(TAG, "SS state changed: $initialDeviceState, resultCode:$resultCode")
-            }
-            sendDeviceState("ss_service_status", initialDeviceState, resultCode)
-        }
-
-        private fun subscribeToEvents(ssPcc: AntPlusStrideSdmPcc) {
-            // https://www.thisisant.com/developer/ant-plus/device-profiles#528_tab
-            ssPcc.subscribeStrideCountEvent(object : IStrideCountReceiver {
-                private val strideList = LinkedList<Pair<Long, Long>>()
-                private val lock = Semaphore(1)
-                override fun onNewStrideCount(estTimestamp: Long, eventFlags: EnumSet<EventFlag>, cumulativeStrides: Long) {
-                    Thread {
-                        val FALLBACK_MAX_LIST_SIZE = 500
-                        try {
-                            lock.acquire()
-                            // Calculate number of strides per minute, updates happen around every 500 ms, this number
-                            // may be off by that amount but it isn't too significant
-                            strideList.addFirst(Pair(estTimestamp, cumulativeStrides))
-                            var strideCount: Long = 0
-                            var valueFound = false
-                            var i = 0
-                            for (p in strideList) {
-                                // Cadence over the last 10 seconds
-                                if (estTimestamp - p.first >= 10_000) {
-                                    valueFound = true
-                                    strideCount = calculateStepsPerMin(estTimestamp, cumulativeStrides, p)
-                                    break
-                                } else if (i + 1 == strideList.size) {
-                                    // No value was found yet, it has not been 10 seconds. Give an early rough estimate
-                                    strideCount = calculateStepsPerMin(estTimestamp, cumulativeStrides, p)
-                                }
-                                i++
-                            }
-                            while (valueFound && strideList.size >= i + 1 || strideList.size > FALLBACK_MAX_LIST_SIZE) {
-                                strideList.removeLast()
-                            }
-                            lastSSStrideCountTimestamp = estTimestamp
-                            lastStridePerMinute = strideCount
-                            lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-                            lock.release()
-                        } catch (e: InterruptedException) {
-                            Log.e(TAG, "Unable to acquire lock to update running cadence", e)
-                        }
-                    }.start()
-                }
-
-                private fun calculateStepsPerMin(estTimestamp: Long, cumulativeStrides: Long, p: Pair<Long, Long>): Long {
-                    val elapsedTimeMs = estTimestamp - p.first.toFloat()
-                    return if (elapsedTimeMs == 0f) {
-                        0
-                    } else ((cumulativeStrides - p.second) * (60_000 / elapsedTimeMs)) as Long
-                }
-            })
-            ssPcc.subscribeDistanceEvent { estTimestamp, eventFlags, distance ->
-                lastSSDistanceTimestamp = estTimestamp
-                lastSSDistance = distance.toLong()
-                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-            }
-            ssPcc.subscribeInstantaneousSpeedEvent { estTimestamp, eventFlags, instantaneousSpeed ->
-                lastSSDistanceTimestamp = estTimestamp
-                lastSSSpeed = instantaneousSpeed.toFloat()
-                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-            }
-        }
-    }
-
-    private enum class AntSensorType {
-        CyclingSpeed, CyclingCadence, HR, StrideBasedSpeedAndDistance
-    }
-
-    private inner class AntDeviceChangeReceiver(private val type: AntSensorType) : IDeviceStateChangeReceiver {
-        override fun onDeviceStateChange(newDeviceState: DeviceState) {
-            var extraName = "unknown"
-            if (type == AntSensorType.CyclingSpeed) {
-                extraName = "bsd_service_status"
-                Log.d(TAG, "Speed sensor onDeviceStateChange:$newDeviceState")
-            } else if (type == AntSensorType.CyclingCadence) {
-                extraName = "bc_service_status"
-                Log.d(TAG, "Cadence sensor onDeviceStateChange:$newDeviceState")
-            } else if (type == AntSensorType.HR) {
-                extraName = "hr_service_status"
-                Log.d(TAG, "HR sensor onDeviceStateChange:$newDeviceState")
-            } else if (type == AntSensorType.StrideBasedSpeedAndDistance) {
-                extraName = "ss_service_status"
-                Log.d(TAG, "Stride based speed and distance onDeviceStateChange:$newDeviceState")
-            }
-            sendDeviceState(extraName, newDeviceState, null)
-
-            // if the device is dead (closed)
-            if (newDeviceState == DeviceState.DEAD) {
-                bsdPcc = null
-            }
-        }
-    }
-
-    private val mSSDeviceStateChangeReceiver: IDeviceStateChangeReceiver = AntDeviceChangeReceiver(AntSensorType.StrideBasedSpeedAndDistance)
 
     private val db by lazy {
         BiscuitDatabase.getInstance(this.applicationContext)
@@ -231,7 +125,6 @@ class BiscuitService : Service() {
             startForeground(ONGOING_NOTIFICATION_ID, notification)
         }
         return START_NOT_STICKY
-
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -250,7 +143,7 @@ class BiscuitService : Service() {
             val lastut = lastUpdateTime
             val isChanged = lastut > previousUpdateTime
 
-            if(lastSpeed > 1.0f && previousUpdateTime > Instant.EPOCH) {
+            if(sensors.speed.speed > 1.0 && previousUpdateTime > Instant.EPOCH) {
                 val elapsed = (lastut.toEpochMilli() - previousUpdateTime.toEpochMilli())
                 movingTime += elapsed
             }
@@ -260,26 +153,6 @@ class BiscuitService : Service() {
             previousUpdateTime = lastut
         }
     }
-
-//    private val fakeSensorThread = thread(start = false) {
-//        while (antInitialized) {
-//            sleep(40)
-//            val now = Instant.now()
-//            val speed = 30 * sin(now.toEpochMilli().toDouble() / 12000.0) - 1
-//            if(lastSpeed > 0 || speed >= 0) {
-//                synchronized(this) {
-//                    lastSpeed = max(speed, 0.0).toFloat()
-//                    if (lastSpeed > 1.0f) {
-//                        cumulativeWheelRevolution += 1
-//                        lastCadence = if (Math.random() > 0.3) lastSpeed.toInt() else 0
-//                    } else {
-//                        lastCadence = 0
-//                    }
-//                    lastUpdateTime = now
-//                }
-//            }
-//        }
-//    }
 
     private lateinit var locationManager: LocationManager
 
@@ -295,9 +168,7 @@ class BiscuitService : Service() {
             lastLocation = location
             requestLocationUpdates()
         }
-        // ANT+
         initAntPlus()
-//        if(this.isFake()) fakeSensorThread.start()
         updaterThread.start()
     }
 
@@ -317,7 +188,7 @@ class BiscuitService : Service() {
                     override fun onLocationChanged(loc: Location) {
                         lastLocation = loc
                         lastUpdateTime = Instant.ofEpochMilli(loc.time)
-                        Log.d(TAG, "locationChanged" + loc)
+                        Log.d(TAG, "locationChanged $loc")
                     }
                 })
     }
@@ -331,12 +202,7 @@ class BiscuitService : Service() {
     }
 
     private fun cleanupAnt() {
-        if (antInitialized) {
-            antInitialized = false
-            // stop ANT+
-            sensors.close()
-            combinedSensorConnected = false
-        }
+        sensors.close()
     }
 
     override fun onDestroy() {
@@ -370,18 +236,8 @@ class BiscuitService : Service() {
      * Initialize searching for all supported sensors
      */
     private fun initAntPlus() {
-        if(this.isFake())
-            Log.d(TAG, "faking ANT+ access")
-        else
-            Log.d(TAG, "requesting ANT+ access")
         combinedSensorConnected = false
-        sensors.speed.startSearch(this)
-        sensors.cadence.startSearch(this)
-        sensors.heart.startSearch(this)
-        sensors.stride.startSearchBy(this) {
-            AntPlusStrideSdmPcc.requestAccess(this, 0, 0,
-                    mSSResultReceiver, mSSDeviceStateChangeReceiver)
-        }
+        sensors.startSearch(this)
         antInitialized = true
     }
 
