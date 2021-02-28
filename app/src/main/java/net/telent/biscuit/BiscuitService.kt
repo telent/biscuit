@@ -21,7 +21,6 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.media.app.NotificationCompat
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeSpeedDistancePcc
-import com.dsi.ant.plugins.antplus.pcc.AntPlusHeartRatePcc
 import com.dsi.ant.plugins.antplus.pcc.AntPlusStrideSdmPcc
 import com.dsi.ant.plugins.antplus.pcc.AntPlusStrideSdmPcc.IStrideCountReceiver
 import com.dsi.ant.plugins.antplus.pcc.defines.DeviceState
@@ -39,7 +38,7 @@ data class Sensors(
         val speed : SpeedSensor = SpeedSensor(),
         var cadence : CadenceSensor = CadenceSensor(),
         var stride : Sensor = Sensor("stride"),
-        var heart: HeartSensor
+        var heart: HeartSensor = HeartSensor()
 ) {
     fun close() {
         speed.close()
@@ -52,23 +51,11 @@ data class Sensors(
 class BiscuitService : Service() {
     private var bsdPcc: AntPlusBikeSpeedDistancePcc? = null
 
-    private val heartSensor = object : HeartSensor() {
-        override fun subscribeToEvents(pcc: AntPlusHeartRatePcc) {
-            pcc.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
-                lastHR = computedHeartRate
-                lastHRTimestamp = estTimestamp
-                lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-            }
-        }
-    }
+    private var sensors = Sensors()
 
-    private var sensors = Sensors(heart = heartSensor)
-
-    private var lastHRTimestamp: Long = 0
     private var lastSSDistanceTimestamp: Long = 0
     private var lastSSStrideCountTimestamp: Long = 0
     private var lastSpeed = 0f
-    private var lastHR = 0
     private var lastSSDistance: Long = 0
     private var lastSSSpeed = 0f
     private var lastStridePerMinute: Long = 0

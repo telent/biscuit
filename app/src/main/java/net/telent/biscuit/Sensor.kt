@@ -12,6 +12,7 @@ import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc
 import com.dsi.ant.plugins.antplus.pccbase.AntPlusCommonPcc
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.*
 
 open class Sensor(val name: String) {
@@ -21,7 +22,8 @@ open class Sensor(val name: String) {
             Log.d("sensor", "sensor $name changed from $field to $value")
             field = value
         }
-    var pcc : AntPlusCommonPcc? = null
+
+    var sensorName : String = ""
     private var releaseHandle : PccReleaseHandle<*>? = null
     fun startSearchBy(context: Context, f: () -> PccReleaseHandle<*>)
     {
@@ -52,6 +54,8 @@ class SpeedSensor : Sensor("speed") {
     // what if we put the speed etc properties in here instead of in BiscuitService?
     var speed = 0.0
     var distance = 0.0
+    var combinedSensor = false
+
     fun startSearch(context: Context) {
         startSearchBy(context) {
             AntPlusBikeSpeedDistancePcc.requestAccess(context, 0, 0, false,
@@ -66,6 +70,7 @@ class SpeedSensor : Sensor("speed") {
         }
     }
     private fun subscribeToEvents(pcc : AntPlusBikeSpeedDistancePcc) {
+        sensorName = pcc.deviceName
         pcc.subscribeCalculatedSpeedEvent(object : AntPlusBikeSpeedDistancePcc.CalculatedSpeedReceiver(BigDecimal("2.205")) {
             override fun onNewCalculatedSpeed(estTimestamp: Long,
                                               eventFlags: EnumSet<EventFlag>, calculatedSpeed: BigDecimal) {
@@ -79,6 +84,7 @@ class SpeedSensor : Sensor("speed") {
             //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
             distance = cumulativeRevolutions.toDouble() * 2.205
         }
+        combinedSensor = pcc.isSpeedAndCadenceCombinedSensor
 //            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
 //                // if this is  a combined sensor, subscribe to its cadence events
 //                combinedSensorConnected = true
@@ -92,6 +98,7 @@ class SpeedSensor : Sensor("speed") {
 
 class CadenceSensor : Sensor("cadence") {
     var cadence = 0.0
+    var combinedSensor = false
 
     fun startSearch(context: Context) {
         startSearchBy(context) {
@@ -111,6 +118,8 @@ class CadenceSensor : Sensor("cadence") {
         pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
             cadence = calculatedCadence.toDouble()
         }
+        sensorName = pcc.deviceName
+        combinedSensor = pcc.isSpeedAndCadenceCombinedSensor
 //        pcc.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
 //            cumulativeCrankRevolution = cumulativeRevolutions
 //            lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
@@ -126,14 +135,14 @@ class CadenceSensor : Sensor("cadence") {
     }
 }
 
-abstract class HeartSensor : Sensor("heart") {
+class HeartSensor : Sensor("heart") {
+    var hr : Int = 0
     fun startSearch(context: Context) {
         startSearchBy(context) {
             AntPlusHeartRatePcc.requestAccess(context, 0, 0,
                     resultReceiver, stateChangeReceiver)
         }
     }
-    abstract fun subscribeToEvents(pcc: AntPlusHeartRatePcc)
 
     private val resultReceiver : AntPluginPcc.IPluginAccessResultReceiver<AntPlusHeartRatePcc> = AntPluginPcc.IPluginAccessResultReceiver<AntPlusHeartRatePcc> { result, resultCode, initialDeviceState ->
         if (initialDeviceState != null)
@@ -142,4 +151,12 @@ abstract class HeartSensor : Sensor("heart") {
             subscribeToEvents(result!!)
         }
     }
+
+    private fun subscribeToEvents(pcc: AntPlusHeartRatePcc) {
+        sensorName = pcc.deviceName
+        pcc.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
+            hr = computedHeartRate
+        }
+    }
+
 }
