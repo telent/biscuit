@@ -16,76 +16,54 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_weight="1"
+        <TextView
+            android:id="@+id/SpeedText"
+            android:background="@drawable/borderbackground"            android:textColor="@color/colorText"
             android:layout_height="0dp"
-            android:foregroundGravity="center"
-            >
-            <TextView
-                android:id="@+id/SpeedState"
-                android:layout_height="24pt"
-                android:layout_marginStart="10dp"
-                android:layout_width="fill_parent"
-                android:text=""
-                android:autoSizeTextType="uniform"
-                android:autoSizeMaxTextSize="24pt"
-                android:autoSizeMinTextSize="6pt"
-                />
-            <TextView
-                android:id="@+id/SpeedText"
-                android:textColor="@color/colorText"
-                android:layout_height="fill_parent"
-                android:layout_width="fill_parent"
-                android:layout_marginStart="10dp"
-                android:text=""
-                android:gravity="bottom"
-                android:textSize="36pt" />
-
-        </FrameLayout>
-
-        <FrameLayout
-            android:layout_width="match_parent"
             android:layout_weight="1"
+            android:layout_width="fill_parent"
+            android:paddingLeft="20dp"
+            android:gravity="bottom"
+            android:layout_marginBottom="10dp"
+            android:textSize="36pt" />
+
+
+        <TextView
+            android:id="@+id/CadenceText"
+            android:background="@drawable/borderbackground"
+            android:paddingLeft="20dp"
+
+            android:textColor="@color/colorText"
             android:layout_height="0dp"
-            android:foregroundGravity="center"
-            >
-            <TextView
-                android:id="@+id/CadenceState"
-                android:layout_marginStart="10dp"
-                android:layout_height="24pt"
-                android:layout_width="fill_parent"
-                android:text=""
-                android:autoSizeTextType="uniform"
-                android:autoSizeMaxTextSize="24pt" />
-            <TextView
-                android:id="@+id/CadenceText"
-                android:textColor="@color/colorText"
-                android:layout_height="fill_parent"
-                android:layout_width="fill_parent"
-                android:layout_marginStart="10dp"
-                android:gravity="bottom"
-                android:textSize="36pt" />
-        </FrameLayout>
+            android:layout_width="fill_parent"
+            android:layout_weight="1"
+            android:gravity="bottom"
+            android:layout_marginBottom="10dp"
+            android:textSize="36pt" />
+
         <TextView
             android:id="@+id/DistanceText"
+            android:background="@drawable/borderbackground"
+            android:paddingLeft="20dp"
             android:textColor="@color/colorText"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginStart="10dp"
             android:text=""
             android:gravity="bottom"
+            android:layout_marginBottom="10dp"
             android:textSize="36pt" />
         <TextView
             android:id="@+id/TimeText"
+            android:background="@drawable/borderbackground"
+            android:paddingLeft="20dp"
             android:textColor="@color/colorText"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginStart="10dp"
             android:text=""
             android:gravity="bottom"
+            android:layout_marginBottom="10dp"
             android:textSize="36pt" />
 
     </LinearLayout>
