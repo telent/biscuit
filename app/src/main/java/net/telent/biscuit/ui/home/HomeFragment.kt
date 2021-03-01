@@ -9,7 +9,6 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import net.telent.biscuit.R
 import net.telent.biscuit.ui.track.TrackViewModel
-import org.osmdroid.util.GeoPoint
 import java.time.Instant.EPOCH
 import java.time.LocalDateTime
 import java.time.ZoneId

@@ -10,23 +10,19 @@ import android.preference.PreferenceManager
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.TextView
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import net.telent.biscuit.BiscuitService.LocalBinder
+import net.telent.biscuit.ui.sensors.SensorsViewModel
 import net.telent.biscuit.ui.track.TrackViewModel
 import org.osmdroid.config.Configuration
-import java.time.Instant.EPOCH
-import java.time.LocalDateTime
-import java.time.ZoneId
 
 
 class BikeActivity : AppCompatActivity() {
@@ -155,14 +151,17 @@ class BikeActivity : AppCompatActivity() {
 
     private inner class MainActivityReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val trackpoint : Trackpoint? = intent.getParcelableExtra("trackpoint")
-            val sensors : Array<*>? = intent.getParcelableExtra("sensor_state")
+            val trackpoint: Trackpoint? = intent.getParcelableExtra("trackpoint")
+            val sensors: SensorSummaries? = intent.getParcelableExtra("sensor_state")
             if (trackpoint != null) {
                 val vm: TrackViewModel by viewModels()
                 vm.move(trackpoint)
             }
-            if (sensors != null)
+            if (sensors != null) {
+                val vm: SensorsViewModel by viewModels()
+                vm.update(sensors)
                 Log.d(TAG, "received new sensor state $sensors")
+            }
         }
     }
     companion object {

@@ -10,15 +10,13 @@ import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.os.Binder
-import android.os.Build
-import android.os.Bundle
-import android.os.IBinder
+import android.os.*
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.media.app.NotificationCompat
+import kotlinx.parcelize.Parcelize
 import java.lang.Thread.sleep
 import java.time.Instant
 import java.util.*
@@ -44,27 +42,33 @@ data class Sensors(
     }
 
     fun reconnectIfCombined(context: Context) {
-        if (speed.isCombinedSensor && cadence.state != Sensor.SensorState.PRESENT) {
+        if (speed.isCombinedSensor && speed.state == Sensor.SensorState.PRESENT && cadence.state == Sensor.SensorState.ABSENT) {
             Log.d("sensors", "combined speed ${speed.antDeviceNumber}")
             cadence.startSearch(context, speed.antDeviceNumber!!)
         }
-        if (cadence.isCombinedSensor && speed.state != Sensor.SensorState.PRESENT) {
+        if (cadence.isCombinedSensor && cadence.state == Sensor.SensorState.PRESENT && speed.state == Sensor.SensorState.ABSENT) {
             Log.d("sensors", "combined cadence ${cadence.antDeviceNumber}")
             speed.startSearch(context, cadence.antDeviceNumber!!)
         }
     }
 }
 
+@Parcelize data class SensorSummaries(
+        val speed : SensorSummary,
+        val cadence: SensorSummary,
+        val stride: SensorSummary,
+        val heart : SensorSummary) : Parcelable
+
 class BiscuitService : Service() {
     private fun reportSensorStatuses() {
-        val payload = arrayOf(
+        val payload = SensorSummaries(
                 sensors.speed.stateReport(),
                 sensors.cadence.stateReport(),
                 sensors.stride.stateReport(),
                 sensors.heart.stateReport())
         Log.d(TAG, "reporting sensors state $payload")
         val i = Intent(INTENT_NAME)
-        i.putExtra("state", payload)
+        i.putExtra("sensor_state", payload)
         sendBroadcast(i)
         sensors.reconnectIfCombined(this)
     }
@@ -81,10 +85,6 @@ class BiscuitService : Service() {
 
     // for onCreate() failure case
     private var antInitialized = false
-
-    private fun isFake() : Boolean {
-        return(FLAVOR == "fake")
-    }
 
     // Used to flag if we have a combined speed and cadence sensor and have already re-connected as combined
     private var combinedSensorConnected = false
@@ -268,7 +268,6 @@ class BiscuitService : Service() {
     companion object {
         private val TAG = BiscuitService::class.java.simpleName
         const val INTENT_NAME = BuildConfig.APPLICATION_ID + ".TRACKPOINTS"
-        const val FLAVOR = BuildConfig.FLAVOR
         private const val ONGOING_NOTIFICATION_ID = 9999
         private const val CHANNEL_DEFAULT_IMPORTANCE = "csc_ble_channel"
         private const val MAIN_CHANNEL_NAME = "CscService"

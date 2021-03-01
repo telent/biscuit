@@ -1,6 +1,7 @@
 package net.telent.biscuit
 
 import android.content.Context
+import android.os.Parcelable
 import android.util.Log
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeSpeedDistancePcc
@@ -11,6 +12,7 @@ import com.dsi.ant.plugins.antplus.pcc.defines.EventFlag
 import com.dsi.ant.plugins.antplus.pcc.defines.RequestAccessResult
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle
+import kotlinx.parcelize.Parcelize
 import java.math.BigDecimal
 import java.util.*
 import java.util.concurrent.Semaphore
@@ -49,10 +51,17 @@ open class Sensor(val name: String, val onStateChange: (s:Sensor) -> Unit = {}) 
         this@Sensor.state = stateFromAnt(state)
     }
 
-    fun stateReport(): Triple<String, SensorState, String> {
-        return Triple(name, state, sensorName)
+    fun stateReport(): SensorSummary {
+        return SensorSummary(name, state, sensorName)
     }
 }
+
+@Parcelize
+data class SensorSummary(
+        val name: String,
+        val state : Sensor.SensorState,
+        val sensorName : String
+) : Parcelable
 
 class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateChange ) {
     // what if we put the speed etc properties in here instead of in BiscuitService?
@@ -92,14 +101,6 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
             //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
             distance = cumulativeRevolutions.toDouble() * 2.205
         }
-//            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
-//                // if this is  a combined sensor, subscribe to its cadence events
-//                combinedSensorConnected = true
-//                sensors.cadence.startSearchBy(this@BiscuitService) {
-//                    com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc.requestAccess(applicationContext, pcc.antDeviceNumber, 0, true,
-//                            mBCResultReceiver, mBCDeviceStateChangeReceiver)
-//                }
-//            }
     }
 }
 
@@ -129,18 +130,6 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("cadence", onStat
         pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
             cadence = calculatedCadence.toDouble()
         }
-//        pcc.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
-//            cumulativeCrankRevolution = cumulativeRevolutions
-//            lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
-//            lastCadenceTimestamp = estTimestamp
-//            lastUpdateTime = Instant.ofEpochMilli(estTimestamp)
-//        }
-//            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
-//                // reconnect speed sensor as a combined sensor
-//                combinedSensorConnected = true
-//                sensors.speed.startSearch(this@BiscuitService)
-//            }
-
     }
 }
 
