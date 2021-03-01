@@ -42,6 +42,17 @@ data class Sensors(
         heart.startSearch(context)
         stride.startSearch(context)
     }
+
+    fun reconnectIfCombined(context: Context) {
+        if (speed.isCombinedSensor && cadence.state != Sensor.SensorState.PRESENT) {
+            Log.d("sensors", "combined speed ${speed.antDeviceNumber}")
+            cadence.startSearch(context, speed.antDeviceNumber!!)
+        }
+        if (cadence.isCombinedSensor && speed.state != Sensor.SensorState.PRESENT) {
+            Log.d("sensors", "combined cadence ${cadence.antDeviceNumber}")
+            speed.startSearch(context, cadence.antDeviceNumber!!)
+        }
+    }
 }
 
 class BiscuitService : Service() {
@@ -55,6 +66,7 @@ class BiscuitService : Service() {
         val i = Intent(INTENT_NAME)
         i.putExtra("state", payload)
         sendBroadcast(i)
+        sensors.reconnectIfCombined(this)
     }
 
     private var sensors = Sensors(

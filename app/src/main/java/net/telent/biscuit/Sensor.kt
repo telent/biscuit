@@ -22,14 +22,13 @@ open class Sensor(val name: String, val onStateChange: (s:Sensor) -> Unit = {}) 
         set(value) {
             Log.d("sensor", "sensor $name changed from $field to $value")
             field = value
+            onStateChange(this)
         }
 
     var sensorName: String = ""
+    var antDeviceNumber: Int? = null
+
     protected var releaseHandle: PccReleaseHandle<*>? = null
-    open fun startSearch(context: Context) {
-        this.releaseHandle?.close()
-        Log.d("sensor", "started search for $name")
-    }
 
     fun close() {
         this.releaseHandle?.close()
@@ -37,7 +36,7 @@ open class Sensor(val name: String, val onStateChange: (s:Sensor) -> Unit = {}) 
 
     fun stateFromAnt(deviceState: DeviceState): SensorState {
         return when (deviceState) {
-            DeviceState.DEAD -> SensorState.BROKEN
+            DeviceState.DEAD -> SensorState.ABSENT
             DeviceState.CLOSED -> SensorState.ABSENT
             DeviceState.TRACKING -> SensorState.PRESENT
             DeviceState.SEARCHING -> SensorState.SEARCHING
@@ -48,7 +47,6 @@ open class Sensor(val name: String, val onStateChange: (s:Sensor) -> Unit = {}) 
 
     val stateChangeReceiver: AntPluginPcc.IDeviceStateChangeReceiver = AntPluginPcc.IDeviceStateChangeReceiver { state ->
         this@Sensor.state = stateFromAnt(state)
-        onStateChange(this)
     }
 
     fun stateReport(): Triple<String, SensorState, String> {
@@ -60,23 +58,27 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
     // what if we put the speed etc properties in here instead of in BiscuitService?
     var speed = 0.0
     var distance = 0.0
-    var combinedSensor = false
+    var isCombinedSensor = false
 
-    override fun startSearch(context: Context) {
-        super.startSearch(context)
-        this.releaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(context, 0, 0, false,
+    fun startSearch(context: Context, antDeviceNumber: Int = 0 ) {
+        this.close()
+        this.releaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(context, antDeviceNumber, 0, antDeviceNumber > 0,
                     resultReceiver, stateChangeReceiver)
 
     }
-    private val resultReceiver: AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> = AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> { result, resultCode, initialDeviceState ->
+
+    private val resultReceiver: AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> = AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> { pcc, resultCode, initialDeviceState ->
+        if (resultCode == RequestAccessResult.SUCCESS) {
+            sensorName = pcc!!.deviceName
+            antDeviceNumber = pcc.antDeviceNumber
+            isCombinedSensor = pcc.isSpeedAndCadenceCombinedSensor
+            if(isCombinedSensor) Log.d("sensors", "combined speed")
+            subscribeToEvents(pcc)
+        }
         if (initialDeviceState != null)
             this@SpeedSensor.state = stateFromAnt(initialDeviceState)
-        if (resultCode == RequestAccessResult.SUCCESS) {
-            subscribeToEvents(result!!)
-        }
     }
     private fun subscribeToEvents(pcc : AntPlusBikeSpeedDistancePcc) {
-        sensorName = pcc.deviceName
         pcc.subscribeCalculatedSpeedEvent(object : AntPlusBikeSpeedDistancePcc.CalculatedSpeedReceiver(BigDecimal("2.205")) {
             override fun onNewCalculatedSpeed(estTimestamp: Long,
                                               eventFlags: EnumSet<EventFlag>, calculatedSpeed: BigDecimal) {
@@ -90,7 +92,6 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
             //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
             distance = cumulativeRevolutions.toDouble() * 2.205
         }
-        combinedSensor = pcc.isSpeedAndCadenceCombinedSensor
 //            if (pcc.isSpeedAndCadenceCombinedSensor && !combinedSensorConnected) {
 //                // if this is  a combined sensor, subscribe to its cadence events
 //                combinedSensorConnected = true
@@ -104,28 +105,30 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
 
 class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("cadence", onStateChange ) {
     var cadence = 0.0
-    var combinedSensor = false
+    var isCombinedSensor = false
 
-    override fun startSearch(context: Context) {
-        super.startSearch(context)
+    fun startSearch(context: Context, antDeviceNumber: Int = 0) {
+        this.close()
         this.releaseHandle =
-            AntPlusBikeCadencePcc.requestAccess(context, 0, 0, false,
+            AntPlusBikeCadencePcc.requestAccess(context, antDeviceNumber, 0, antDeviceNumber > 0,
                     resultReceiver, stateChangeReceiver)
     }
 
-    private val resultReceiver: AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeCadencePcc> { result, resultCode, initialDeviceState ->
+    private val resultReceiver: AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeCadencePcc> = AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeCadencePcc> { pcc, resultCode, initialDeviceState ->
+        if (resultCode == RequestAccessResult.SUCCESS) {
+            sensorName = pcc!!.deviceName
+            antDeviceNumber = pcc.antDeviceNumber
+            isCombinedSensor = pcc.isSpeedAndCadenceCombinedSensor
+            if(isCombinedSensor) Log.d("sensors", "combined cadenxe")
+            subscribeToEvents(pcc)
+        }
         if (initialDeviceState != null)
             this@CadenceSensor.state = stateFromAnt(initialDeviceState)
-        if (resultCode == RequestAccessResult.SUCCESS) {
-            subscribeToEvents(result!!)
-        }
     }
     private fun subscribeToEvents(pcc: AntPlusBikeCadencePcc) {
         pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
             cadence = calculatedCadence.toDouble()
         }
-        sensorName = pcc.deviceName
-        combinedSensor = pcc.isSpeedAndCadenceCombinedSensor
 //        pcc.subscribeRawCadenceDataEvent { estTimestamp, eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
 //            cumulativeCrankRevolution = cumulativeRevolutions
 //            lastCrankEventTime = (timestampOfLastEvent.toDouble() * 1024.0).toInt()
@@ -143,9 +146,9 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("cadence", onStat
 
 class HeartSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("heart", onStateChange ) {
     var hr : Int = 0
-    override fun startSearch(context: Context) {
-        super.startSearch(context)
-        this.releaseHandle =  AntPlusHeartRatePcc.requestAccess(context, 0, 0,
+    fun startSearch(context: Context, antDeviceNumber: Int = 0) {
+        this.close()
+        this.releaseHandle =  AntPlusHeartRatePcc.requestAccess(context, antDeviceNumber, 0,
                     resultReceiver, stateChangeReceiver)
 
     }
@@ -160,6 +163,7 @@ class HeartSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("heart", onStateCha
 
     private fun subscribeToEvents(pcc: AntPlusHeartRatePcc) {
         sensorName = pcc.deviceName
+        antDeviceNumber = pcc.antDeviceNumber
         pcc.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
             hr = computedHeartRate
         }
@@ -171,9 +175,9 @@ class StrideSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("stride", onStateC
     var distance = 0.0
     var speed = 0.0
 
-    override fun startSearch(context: Context) {
-        super.startSearch(context)
-        this.releaseHandle =  AntPlusStrideSdmPcc.requestAccess(context, 0, 0,
+    fun startSearch(context: Context, antDeviceNumber: Int = 0) {
+        this.close()
+        this.releaseHandle =  AntPlusStrideSdmPcc.requestAccess(context, antDeviceNumber, 0,
                 resultReceiver, stateChangeReceiver)
     }
 
@@ -187,6 +191,7 @@ class StrideSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("stride", onStateC
 
     private fun subscribeToEvents(pcc: AntPlusStrideSdmPcc) {
         sensorName = pcc.deviceName
+        antDeviceNumber = pcc.antDeviceNumber
         // https://www.thisisant.com/developer/ant-plus/device-profiles#528_tab
         pcc.subscribeStrideCountEvent(object : AntPlusStrideSdmPcc.IStrideCountReceiver {
             private val strideList = LinkedList<Pair<Long, Long>>()
