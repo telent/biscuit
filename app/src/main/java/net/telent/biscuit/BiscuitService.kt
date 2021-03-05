@@ -86,9 +86,6 @@ class BiscuitService : Service() {
     // for onCreate() failure case
     private var antInitialized = false
 
-    // Used to flag if we have a combined speed and cadence sensor and have already re-connected as combined
-    private var combinedSensorConnected = false
-
     // Binder for activities wishing to communicate with this service
     private val binder: IBinder = LocalBinder()
 
@@ -248,7 +245,6 @@ class BiscuitService : Service() {
      * Initialize searching for all supported sensors
      */
     private fun initAntPlus() {
-        combinedSensorConnected = false
         sensors.startSearch(this)
         antInitialized = true
     }
