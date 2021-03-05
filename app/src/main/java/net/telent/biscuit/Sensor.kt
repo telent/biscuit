@@ -70,6 +70,7 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
     var speed = 0.0
     var distance = 0.0
     var isCombinedSensor = false
+    val wheelCircumference = 2.105 // 700x25, ref https://cateye.com/data/resources/Tire_size_chart_ENG.pdf
 
     fun startSearch(context: Context, antDeviceNumber: Int = 0 ) {
         this.close()
@@ -90,7 +91,7 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
             this@SpeedSensor.state = stateFromAnt(initialDeviceState)
     }
     private fun subscribeToEvents(pcc : AntPlusBikeSpeedDistancePcc) {
-        pcc.subscribeCalculatedSpeedEvent(object : AntPlusBikeSpeedDistancePcc.CalculatedSpeedReceiver(BigDecimal("2.205")) {
+        pcc.subscribeCalculatedSpeedEvent(object : AntPlusBikeSpeedDistancePcc.CalculatedSpeedReceiver(BigDecimal(wheelCircumference)) {
             override fun onNewCalculatedSpeed(estTimestamp: Long,
                                               eventFlags: EnumSet<EventFlag>, calculatedSpeed: BigDecimal) {
                 speed = calculatedSpeed.toDouble() * 3.6
@@ -102,7 +103,7 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
             //eventFlags - Informational flags about the event.
             //timestampOfLastEvent - Sensor reported time counter value of last distance or speed computation (up to 1/200s accuracy). Units: s. Rollover: Every ~46 quadrillion s (~1.5 billion years).
             //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
-            distance = cumulativeRevolutions.toDouble() * 2.205
+            distance = cumulativeRevolutions.toDouble() * wheelCircumference
             timestamp = Instant.now()
         }
     }
@@ -124,7 +125,6 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("cadence", onStat
             sensorName = pcc!!.deviceName
             antDeviceNumber = pcc.antDeviceNumber
             isCombinedSensor = pcc.isSpeedAndCadenceCombinedSensor
-            if(isCombinedSensor) Log.d("sensors", "combined cadenxe")
             subscribeToEvents(pcc)
         }
         if (initialDeviceState != null)
