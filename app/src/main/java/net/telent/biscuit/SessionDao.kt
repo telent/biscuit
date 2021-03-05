@@ -16,15 +16,15 @@ interface SessionDao {
     fun getOpen(): Session
 
     @Query("update session set e = :end where e is null")
-    fun close(end : Instant) : Unit
+    fun close(end : Instant)
 
     @Insert
     fun create(s: Session)
 
     fun start(start: Instant) {
         this.close(start)
-        val sess = Session(start=start, end=null)
-        Log.d("HEY", "inserting $sess")
-        this.create(sess)
+        val session = Session(start=start, end=null)
+        Log.d("HEY", "inserting $session")
+        this.create(session)
     }
 }

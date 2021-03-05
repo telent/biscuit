@@ -31,7 +31,8 @@ class SensorsFragment : Fragment() {
                 speed.text = formatSummary(it.speed)
                 cadence.text = formatSummary(it.cadence)
                 heart.text = formatSummary(it.heart)
-                stride.text = formatSummary(it.stride)
+                stride.text = formatSummary(it.stride) + formatSummary(it.position)
+
             }
         })
 

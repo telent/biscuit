@@ -1,6 +1,12 @@
 package net.telent.biscuit
 
+import android.annotation.SuppressLint
+import android.app.Service
 import android.content.Context
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.Bundle
 import android.os.Parcelable
 import android.util.Log
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikeCadencePcc
@@ -19,6 +25,8 @@ import java.util.*
 import java.util.concurrent.Semaphore
 
 interface ISensor {
+    enum class SensorState { ABSENT, SEARCHING, PRESENT, BROKEN, FORBIDDEN }
+    var state: SensorState
     var timestamp : Instant
 
     fun startSearch(context: Context, antDeviceNumber: Int = 0 )
@@ -26,9 +34,7 @@ interface ISensor {
 }
 
 open class Sensor(val name: String, val onStateChange: (s:Sensor) -> Unit = {}) {
-    enum class SensorState { ABSENT, SEARCHING, PRESENT, BROKEN }
-
-    var state: SensorState = SensorState.ABSENT
+    var state: ISensor.SensorState = ISensor.SensorState.ABSENT
         set(value) {
             Log.d("sensor", "sensor $name changed from $field to $value")
             field = value
@@ -40,40 +46,42 @@ open class Sensor(val name: String, val onStateChange: (s:Sensor) -> Unit = {}) 
 
     var timestamp : Instant = Instant.EPOCH
 
+    fun stateReport(): SensorSummary {
+        return SensorSummary(name, state, sensorName)
+    }
+}
+
+open class AntSensor (name: String, onStateChange: (s:Sensor) -> Unit = {}) : Sensor(name, onStateChange) {
     protected var releaseHandle: PccReleaseHandle<*>? = null
 
     fun close() {
         this.releaseHandle?.close()
     }
 
-    fun stateFromAnt(deviceState: DeviceState): SensorState {
+    fun stateFromAnt(deviceState: DeviceState): ISensor.SensorState {
         return when (deviceState) {
-            DeviceState.DEAD -> SensorState.ABSENT
-            DeviceState.CLOSED -> SensorState.ABSENT
-            DeviceState.TRACKING -> SensorState.PRESENT
-            DeviceState.SEARCHING -> SensorState.SEARCHING
-            DeviceState.PROCESSING_REQUEST -> SensorState.SEARCHING
-            DeviceState.UNRECOGNIZED -> SensorState.BROKEN
+            DeviceState.DEAD -> ISensor.SensorState.ABSENT
+            DeviceState.CLOSED -> ISensor.SensorState.ABSENT
+            DeviceState.TRACKING -> ISensor.SensorState.PRESENT
+            DeviceState.SEARCHING -> ISensor.SensorState.SEARCHING
+            DeviceState.PROCESSING_REQUEST -> ISensor.SensorState.SEARCHING
+            DeviceState.UNRECOGNIZED -> ISensor.SensorState.BROKEN
         }
     }
 
-    val stateChangeReceiver: AntPluginPcc.IDeviceStateChangeReceiver = AntPluginPcc.IDeviceStateChangeReceiver { state ->
-        this@Sensor.state = stateFromAnt(state)
-    }
-
-    fun stateReport(): SensorSummary {
-        return SensorSummary(name, state, sensorName)
+    val stateChangeReceiver: AntPluginPcc.IDeviceStateChangeReceiver = AntPluginPcc.IDeviceStateChangeReceiver { antState ->
+        state = stateFromAnt(antState)
     }
 }
 
 @Parcelize
 data class SensorSummary(
         val name: String,
-        val state : Sensor.SensorState,
+        val state : ISensor.SensorState,
         val sensorName : String
 ) : Parcelable
 
-class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , Sensor("speed", onStateChange )  {
+class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , AntSensor("speed", onStateChange )  {
     var speed = 0.0
     var distance = 0.0
     var isCombinedSensor = false
@@ -116,7 +124,7 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , Sensor("speed", 
     }
 }
 
-class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("cadence", onStateChange ) {
+class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("cadence", onStateChange ) {
     var cadence = 0.0
     var isCombinedSensor = false
 
@@ -145,7 +153,7 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("cadence
     }
 }
 
-class HeartSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("heart", onStateChange ) {
+class HeartSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("heart", onStateChange ) {
     var hr : Int = 0
     override fun startSearch(context: Context, antDeviceNumber: Int ) {
         this.close()
@@ -172,7 +180,7 @@ class HeartSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("heart", o
     }
 }
 
-class StrideSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("stride", onStateChange ) {
+class StrideSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("stride", onStateChange ) {
     var stridePerMinute = 0L
     var distance = 0.0
     var speed = 0.0
@@ -247,5 +255,52 @@ class StrideSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("stride",
             this.speed = instantaneousSpeed.toDouble()
             timestamp = Instant.now()
         }
+    }
+}
+
+class PositionSensor(onStateChange: (s: Sensor) -> Unit) : ISensor , Sensor("gps", onStateChange) {
+    var latitude: Double? = null
+    var longitude: Double? = null
+
+    lateinit var locationManager: LocationManager
+
+    @SuppressLint("MissingPermission") // only called from fns that check the permission
+    override fun startSearch(context: Context, antDeviceNumber: Int) {
+        if(state == ISensor.SensorState.FORBIDDEN) return
+
+        state = ISensor.SensorState.SEARCHING
+        locationManager = context.getSystemService(Service.LOCATION_SERVICE) as LocationManager
+        val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        latitude = location?.latitude
+        longitude = location?.longitude
+        timestamp = Instant.now()
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1.0f, locListener)
+    }
+
+    val locListener = object : LocationListener {
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+
+            Log.d(this.javaClass.name, "status changed $provider $status,$extras")
+        }
+
+        override fun onProviderDisabled(provider: String) {
+            Log.d(this.javaClass.name, "location provider $provider disabled")
+        }
+
+        override fun onProviderEnabled(provider: String) {
+            Log.d(this.javaClass.name, "location provider $provider enabled")
+        }
+
+        override fun onLocationChanged(loc: Location) {
+            state = ISensor.SensorState.PRESENT
+            latitude = loc.latitude
+            longitude = loc.longitude
+            timestamp = Instant.ofEpochMilli(loc.time)
+            Log.d(this.javaClass.name, "locationChanged $loc")
+        }
+    }
+
+    override fun close() {
+        locationManager.removeUpdates(locListener)
     }
 }

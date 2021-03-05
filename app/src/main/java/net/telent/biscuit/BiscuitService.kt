@@ -1,15 +1,11 @@
 package net.telent.biscuit
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.*
 import android.util.Log
 import android.widget.Toast
@@ -27,10 +23,11 @@ data class Sensors(
         val speed : SpeedSensor,
         var cadence : CadenceSensor,
         var stride : StrideSensor,
-        var heart: HeartSensor
+        var heart: HeartSensor,
+        var position: PositionSensor
 ) {
     private fun asList(): List<ISensor> {
-        return listOf(speed, cadence, heart, stride)
+        return listOf(speed, cadence, heart, stride, position)
     }
 
     fun close() {
@@ -46,11 +43,11 @@ data class Sensors(
     }
 
     fun reconnectIfCombined(context: Context) {
-        if (speed.isCombinedSensor && speed.state == Sensor.SensorState.PRESENT && cadence.state == Sensor.SensorState.ABSENT) {
+        if (speed.isCombinedSensor && speed.state == ISensor.SensorState.PRESENT && cadence.state == ISensor.SensorState.ABSENT) {
             Log.d("sensors", "combined speed ${speed.antDeviceNumber}")
             cadence.startSearch(context, speed.antDeviceNumber!!)
         }
-        if (cadence.isCombinedSensor && cadence.state == Sensor.SensorState.PRESENT && speed.state == Sensor.SensorState.ABSENT) {
+        if (cadence.isCombinedSensor && cadence.state == ISensor.SensorState.PRESENT && speed.state == ISensor.SensorState.ABSENT) {
             Log.d("sensors", "combined cadence ${cadence.antDeviceNumber}")
             speed.startSearch(context, cadence.antDeviceNumber!!)
         }
@@ -61,7 +58,9 @@ data class Sensors(
         val speed : SensorSummary,
         val cadence: SensorSummary,
         val stride: SensorSummary,
-        val heart : SensorSummary) : Parcelable
+        val heart : SensorSummary,
+        val position : SensorSummary
+        ) : Parcelable
 
 class BiscuitService : Service() {
     private fun reportSensorStatuses() {
@@ -69,7 +68,9 @@ class BiscuitService : Service() {
                 sensors.speed.stateReport(),
                 sensors.cadence.stateReport(),
                 sensors.stride.stateReport(),
-                sensors.heart.stateReport())
+                sensors.heart.stateReport(),
+                sensors.position.stateReport())
+
         Log.d(TAG, "reporting sensors state $payload")
         val i = Intent(INTENT_NAME)
         i.putExtra("sensor_state", payload)
@@ -81,11 +82,10 @@ class BiscuitService : Service() {
             speed = SpeedSensor { s  -> reportSensorStatuses() },
             cadence = CadenceSensor { s  -> reportSensorStatuses() },
             stride = StrideSensor { s  -> reportSensorStatuses() },
-            heart = HeartSensor { s  -> reportSensorStatuses() })
+            heart = HeartSensor { s  -> reportSensorStatuses() },
+            position = PositionSensor { s  -> reportSensorStatuses() })
 
     private var movingTime: Duration = Duration.ZERO
-
-    private var lastLocation : Location? = null
 
     // for onCreate() failure case
     private var antInitialized = false
@@ -96,8 +96,6 @@ class BiscuitService : Service() {
     private val db by lazy {
         BiscuitDatabase.getInstance(this.applicationContext)
     }
-
-    private var lastGpsUpdate : Instant = Instant.EPOCH
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service onStartCommand$intent")
@@ -133,7 +131,8 @@ class BiscuitService : Service() {
             stopSelf()
             cleanupAnt()
         } else if(intent.hasExtra("refresh_sensors")) {
-            initAntPlus()
+            sensors.startSearch(this)
+            antInitialized = true
         } else {
             startForeground(ONGOING_NOTIFICATION_ID, notification)
         }
@@ -153,7 +152,7 @@ class BiscuitService : Service() {
         var previousUpdateTime = Instant.EPOCH
         db.sessionDao().start(Instant.now())
         while (antInitialized) {
-            val latest = maxOf(lastGpsUpdate, sensors.timestamp())
+            val latest = sensors.timestamp()
             if (latest > previousUpdateTime) {
                 if (sensors.speed.speed > 1.0 && previousUpdateTime > Instant.EPOCH) {
                     val elapsed = Duration.between(previousUpdateTime, latest)
@@ -165,7 +164,6 @@ class BiscuitService : Service() {
             sleep(200)
         }
     }
-    private lateinit var locationManager: LocationManager
 
     override fun onCreate() {
         Log.d(TAG, "Service started $INTENT_NAME")
@@ -173,35 +171,11 @@ class BiscuitService : Service() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, "Not recording track, no Location permission",
                     Toast.LENGTH_SHORT).show()
-        } else {
-            locationManager = this.getSystemService(LOCATION_SERVICE) as LocationManager
-            val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            lastLocation = location
-            requestLocationUpdates()
+            sensors.position.state = ISensor.SensorState.FORBIDDEN
         }
-        initAntPlus()
+        sensors.startSearch(this)
+        antInitialized = true
         updaterThread.start()
-    }
-
-    @SuppressLint("MissingPermission") // only called from fns that check the permission
-    private fun requestLocationUpdates() {
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000L,1.0f,
-                object: LocationListener {
-                    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
-                        Log.d(TAG, "status changed $provider $status,$extras")
-                    }
-                    override fun onProviderDisabled(provider: String) {
-                        Log.d(TAG, "location provider $provider disabled")
-                    }
-                    override fun onProviderEnabled(provider: String) {
-                        Log.d(TAG, "location provider $provider enabled")
-                    }
-                    override fun onLocationChanged(loc: Location) {
-                        lastLocation = loc
-                        lastGpsUpdate = Instant.ofEpochMilli(loc.time)
-                        Log.d(TAG, "locationChanged $loc")
-                    }
-                })
     }
 
     override fun onTaskRemoved(rootIntent: Intent) {
@@ -223,12 +197,11 @@ class BiscuitService : Service() {
         cleanupAnt()
     }
 
-
     private fun logUpdate(writeDatabase : Boolean) {
         val tp = Trackpoint(
                 timestamp = Instant.now(),
-                lng = lastLocation?.longitude,
-                lat = lastLocation?.latitude,
+                lng = sensors.position.longitude,
+                lat = sensors.position.latitude,
                 speed = sensors.speed.speed.toFloat(),
                 cadence = sensors.cadence.cadence.toFloat(),
                 movingTime = movingTime,
@@ -242,14 +215,6 @@ class BiscuitService : Service() {
         val i = Intent(INTENT_NAME)
         i.putExtra("trackpoint", tp)
         sendBroadcast(i)
-    }
-
-    /**
-     * Initialize searching for all supported sensors
-     */
-    private fun initAntPlus() {
-        sensors.startSearch(this)
-        antInitialized = true
     }
 
     override fun onBind(intent: Intent): IBinder {
