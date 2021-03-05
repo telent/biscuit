@@ -18,6 +18,13 @@ import java.time.Instant
 import java.util.*
 import java.util.concurrent.Semaphore
 
+interface ISensor {
+    var timestamp : Instant
+
+    fun startSearch(context: Context, antDeviceNumber: Int = 0 )
+    fun close()
+}
+
 open class Sensor(val name: String, val onStateChange: (s:Sensor) -> Unit = {}) {
     enum class SensorState { ABSENT, SEARCHING, PRESENT, BROKEN }
 
@@ -66,13 +73,13 @@ data class SensorSummary(
         val sensorName : String
 ) : Parcelable
 
-class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateChange ) {
+class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , Sensor("speed", onStateChange )  {
     var speed = 0.0
     var distance = 0.0
     var isCombinedSensor = false
     val wheelCircumference = 2.105 // 700x25, ref https://cateye.com/data/resources/Tire_size_chart_ENG.pdf
 
-    fun startSearch(context: Context, antDeviceNumber: Int = 0 ) {
+    override fun startSearch(context: Context, antDeviceNumber: Int  ) {
         this.close()
         this.releaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(context, antDeviceNumber, 0, antDeviceNumber > 0,
                     resultReceiver, stateChangeReceiver)
@@ -109,11 +116,11 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
     }
 }
 
-class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("cadence", onStateChange ) {
+class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("cadence", onStateChange ) {
     var cadence = 0.0
     var isCombinedSensor = false
 
-    fun startSearch(context: Context, antDeviceNumber: Int = 0) {
+    override fun startSearch(context: Context, antDeviceNumber: Int ) {
         this.close()
         this.releaseHandle =
             AntPlusBikeCadencePcc.requestAccess(context, antDeviceNumber, 0, antDeviceNumber > 0,
@@ -138,9 +145,9 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("cadence", onStat
     }
 }
 
-class HeartSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("heart", onStateChange ) {
+class HeartSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("heart", onStateChange ) {
     var hr : Int = 0
-    fun startSearch(context: Context, antDeviceNumber: Int = 0) {
+    override fun startSearch(context: Context, antDeviceNumber: Int ) {
         this.close()
         this.releaseHandle =  AntPlusHeartRatePcc.requestAccess(context, antDeviceNumber, 0,
                     resultReceiver, stateChangeReceiver)
@@ -165,12 +172,12 @@ class HeartSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("heart", onStateCha
     }
 }
 
-class StrideSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("stride", onStateChange ) {
+class StrideSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, Sensor("stride", onStateChange ) {
     var stridePerMinute = 0L
     var distance = 0.0
     var speed = 0.0
 
-    fun startSearch(context: Context, antDeviceNumber: Int = 0) {
+    override fun startSearch(context: Context, antDeviceNumber: Int) {
         this.close()
         this.releaseHandle =  AntPlusStrideSdmPcc.requestAccess(context, antDeviceNumber, 0,
                 resultReceiver, stateChangeReceiver)

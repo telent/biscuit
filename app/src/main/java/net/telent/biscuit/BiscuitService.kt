@@ -29,23 +29,20 @@ data class Sensors(
         var stride : StrideSensor,
         var heart: HeartSensor
 ) {
+    private fun asList(): List<ISensor> {
+        return listOf(speed, cadence, heart, stride)
+    }
+
     fun close() {
-        speed.close()
-        cadence.close()
-        stride.close()
-        heart.close()
+        asList().map { it.close() }
     }
 
     fun startSearch(context: Context) {
-        speed.startSearch(context)
-        cadence.startSearch(context)
-        heart.startSearch(context)
-        stride.startSearch(context)
+         asList().map { it.startSearch(context, 0) }
     }
 
     fun timestamp(): Instant {
-        val times : List<Instant> = listOf(speed, cadence, heart, stride).map { s -> s.timestamp }
-        return times.reduce { a, b -> if(a > b) a else b}
+        return asList().map { s -> s.timestamp }.reduce { a, b -> if(a > b) a else b}
     }
 
     fun reconnectIfCombined(context: Context) {
