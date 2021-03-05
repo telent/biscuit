@@ -214,6 +214,7 @@ class BiscuitService : Service() {
 
     private fun cleanupAnt() {
         sensors.close()
+        antInitialized = false
     }
 
     override fun onDestroy() {
