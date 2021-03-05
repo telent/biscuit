@@ -23,8 +23,7 @@ class HomeFragment : Fragment() {
     ): View? {
         val root = inflater.inflate(R.layout.fragment_home, container, false)
         var lastMovingTime = EPOCH
-        model.trackpoint.observe(viewLifecycleOwner, {
-            val (timestamp, _, _, speed, cadence, wheelRevolutions, movingTime) = it
+        model.trackpoint.observe(viewLifecycleOwner, { (timestamp, _, _, speed, cadence, wheelRevolutions, movingTime) ->
             val now = LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault())
             if (speed > 0) lastMovingTime = timestamp
             val showMovingTime = (lastMovingTime > timestamp.minusSeconds(30))
@@ -34,21 +33,19 @@ class HomeFragment : Fragment() {
             } else {
                 String.format("%2d:%02d:%02d", now.hour, now.minute, now.second)
             }
-            val tv_distance: TextView = root.findViewById(R.id.DistanceText)
-            val tv_speed: TextView = root.findViewById(R.id.SpeedText)
-            val tv_cadence: TextView = root.findViewById(R.id.CadenceText)
-            val tv_time: TextView = root.findViewById(R.id.TimeText)
-
+            fun withView(viewId : Int, f: (v : TextView) -> Unit) { f(root.findViewById(viewId)) }
             if (speed >= 0.0f)
-                tv_speed.text = String.format("%.01f", speed) + " km/h"
+                withView(R.id.SpeedText) { it.text = String.format("%.01f", speed) + " km/h" }
             if (cadence >= 0.0f)
-                tv_cadence.text = String.format("%3.1f rpm", cadence)
-            tv_time.text = timestring
+                withView(R.id.CadenceText) { it.text = String.format("%3.1f rpm", cadence) }
+            withView(R.id.TimeText) {v ->v.text = timestring }
             val distanceM = wheelRevolutions * 2.070
-            if (distanceM < 5000)
-                tv_distance.text = String.format("%.01f m", distanceM)
-            else
-                tv_distance.text = String.format("%.01f km", distanceM / 1000)
+            withView(R.id.DistanceText) {
+                if (distanceM < 5000)
+                    it.text = String.format("%.01f m", distanceM)
+                else
+                    it.text = String.format("%.01f km", distanceM / 1000)
+            }
         })
         return root
     }
