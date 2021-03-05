@@ -29,7 +29,7 @@ class HomeFragment : Fragment() {
             if (speed > 0) lastMovingTime = timestamp
             val showMovingTime = (lastMovingTime > timestamp.minusSeconds(30))
             val timestring = if (showMovingTime) {
-                val s = movingTime / 1000
+                val s = movingTime.seconds
                 String.format("%d:%02d:%02d", s / 3600, (s % 3600) / 60, (s % 60))
             } else {
                 String.format("%2d:%02d:%02d", now.hour, now.minute, now.second)

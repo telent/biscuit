@@ -14,6 +14,7 @@ import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle
 import kotlinx.parcelize.Parcelize
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.*
 import java.util.concurrent.Semaphore
 
@@ -29,6 +30,8 @@ open class Sensor(val name: String, val onStateChange: (s:Sensor) -> Unit = {}) 
 
     var sensorName: String = ""
     var antDeviceNumber: Int? = null
+
+    var timestamp : Instant = Instant.EPOCH
 
     protected var releaseHandle: PccReleaseHandle<*>? = null
 
@@ -64,7 +67,6 @@ data class SensorSummary(
 ) : Parcelable
 
 class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateChange ) {
-    // what if we put the speed etc properties in here instead of in BiscuitService?
     var speed = 0.0
     var distance = 0.0
     var isCombinedSensor = false
@@ -92,6 +94,7 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
             override fun onNewCalculatedSpeed(estTimestamp: Long,
                                               eventFlags: EnumSet<EventFlag>, calculatedSpeed: BigDecimal) {
                 speed = calculatedSpeed.toDouble() * 3.6
+                timestamp = Instant.now()
             }
         })
         pcc.subscribeRawSpeedAndDistanceDataEvent { estTimestamp, _eventFlags, timestampOfLastEvent, cumulativeRevolutions ->
@@ -100,6 +103,7 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("speed", onStateCha
             //timestampOfLastEvent - Sensor reported time counter value of last distance or speed computation (up to 1/200s accuracy). Units: s. Rollover: Every ~46 quadrillion s (~1.5 billion years).
             //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
             distance = cumulativeRevolutions.toDouble() * 2.205
+            timestamp = Instant.now()
         }
     }
 }
@@ -129,6 +133,7 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("cadence", onStat
     private fun subscribeToEvents(pcc: AntPlusBikeCadencePcc) {
         pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
             cadence = calculatedCadence.toDouble()
+            timestamp = Instant.now()
         }
     }
 }
@@ -155,6 +160,7 @@ class HeartSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("heart", onStateCha
         antDeviceNumber = pcc.antDeviceNumber
         pcc.subscribeHeartRateDataEvent { estTimestamp, eventFlags, computedHeartRate, heartBeatCount, heartBeatEventTime, dataState ->
             hr = computedHeartRate
+            timestamp = Instant.now()
         }
     }
 }
@@ -228,9 +234,11 @@ class StrideSensor(onStateChange: (s:Sensor)-> Unit) : Sensor("stride", onStateC
         })
         pcc.subscribeDistanceEvent { estTimestamp, eventFlags, distance ->
             this.distance = distance.toDouble()
+            timestamp = Instant.now()
         }
         pcc.subscribeInstantaneousSpeedEvent { estTimestamp, eventFlags, instantaneousSpeed ->
             this.speed = instantaneousSpeed.toDouble()
+            timestamp = Instant.now()
         }
     }
 }

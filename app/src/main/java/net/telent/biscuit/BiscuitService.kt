@@ -18,6 +18,7 @@ import androidx.core.app.ActivityCompat
 import androidx.media.app.NotificationCompat
 import kotlinx.parcelize.Parcelize
 import java.lang.Thread.sleep
+import java.time.Duration
 import java.time.Instant
 import java.util.*
 import kotlin.concurrent.thread
@@ -34,11 +35,17 @@ data class Sensors(
         stride.close()
         heart.close()
     }
-    fun startSearch(context : Context) {
+
+    fun startSearch(context: Context) {
         speed.startSearch(context)
         cadence.startSearch(context)
         heart.startSearch(context)
         stride.startSearch(context)
+    }
+
+    fun timestamp(): Instant {
+        val times : List<Instant> = listOf(speed, cadence, heart, stride).map { s -> s.timestamp }
+        return times.reduce { a, b -> if(a > b) a else b}
     }
 
     fun reconnectIfCombined(context: Context) {
@@ -79,7 +86,7 @@ class BiscuitService : Service() {
             stride = StrideSensor { s  -> reportSensorStatuses() },
             heart = HeartSensor { s  -> reportSensorStatuses() })
 
-    private var movingTime: Long = 0
+    private var movingTime: Duration = Duration.ZERO
 
     private var lastLocation : Location? = null
 
@@ -93,7 +100,7 @@ class BiscuitService : Service() {
         BiscuitDatabase.getInstance(this.applicationContext)
     }
 
-    private var lastUpdateTime : Instant = Instant.EPOCH
+    private var lastGpsUpdate : Instant = Instant.EPOCH
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service onStartCommand$intent")
@@ -145,24 +152,22 @@ class BiscuitService : Service() {
         manager.createNotificationChannel(channel)
     }
 
-    private val updaterThread = thread(start = false){
+    private val updaterThread = thread(start = false) {
         var previousUpdateTime = Instant.EPOCH
         db.sessionDao().start(Instant.now())
-        while(antInitialized) {
-            val lastut = lastUpdateTime
-            val isChanged = lastut > previousUpdateTime
-
-            if(sensors.speed.speed > 1.0 && previousUpdateTime > Instant.EPOCH) {
-                val elapsed = (lastut.toEpochMilli() - previousUpdateTime.toEpochMilli())
-                movingTime += elapsed
+        while (antInitialized) {
+            val latest = maxOf(lastGpsUpdate, sensors.timestamp())
+            if (latest > previousUpdateTime) {
+                if (sensors.speed.speed > 1.0 && previousUpdateTime > Instant.EPOCH) {
+                    val elapsed = Duration.between(previousUpdateTime, latest)
+                    movingTime = movingTime.plus(elapsed)
+                }
+                logUpdate(true)
+                previousUpdateTime = latest
             }
-
-            logUpdate(isChanged)
             sleep(200)
-            previousUpdateTime = lastut
         }
     }
-
     private lateinit var locationManager: LocationManager
 
     override fun onCreate() {
@@ -196,7 +201,7 @@ class BiscuitService : Service() {
                     }
                     override fun onLocationChanged(loc: Location) {
                         lastLocation = loc
-                        lastUpdateTime = Instant.ofEpochMilli(loc.time)
+                        lastGpsUpdate = Instant.ofEpochMilli(loc.time)
                         Log.d(TAG, "locationChanged $loc")
                     }
                 })
