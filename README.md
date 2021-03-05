@@ -9,29 +9,21 @@ It started life as a fork of https://github.com/starryalley/CSC_BLE_Bridge/
 
 tl;dr All the things
 
-- prettify the UI
-- move sensor status into the sensors tab, switch to it when not TRACKING status
-- show current track on map
-- allow select some previous track & show on map
-- downloaded recorded tracks, ideally as GPX
-- better app icon (some day)
-
+- prettify the sensor status display
+- better contrast on map
+- track display should show all the open track
+- allow selection some previous track & show on map
+- downloaded/share/backup recorded tracks, ideally as GPX
+- better app icon
+- investigate why tiles slow to load (or not loading)
 
 ## Note to nixpkgs users
 
 NIXPKGS_ALLOW_UNFREE=1  nix-shell -p firefox -p android-studio --run "android-studio ."
 
-![](Screenshot.png)
-
-
-----
-
-
-a sensor has an identity of some kind, e.g. from pcc.getDeviceName() or
-"gps" or something else
-
-we do a sensor search for each supported class of sensor. It publishes its
-search progress so that the UI can be updated
+![](Screenshots/Screenshot_20210305-175217_Biscuit.png)
+![](Screenshots/Screenshot_20210305-175228_Biscuit.png)
+![](Screenshots/Screenshot_20210305-175252_Biscuit.png)
 
 
 
