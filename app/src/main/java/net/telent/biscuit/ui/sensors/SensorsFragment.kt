@@ -27,7 +27,7 @@ class SensorsFragment : Fragment() {
                 return "${s.name} ${s.sensorName}: ${s.state}"
             }
             layout.removeAllViews()
-            listOf(it.speed, it.cadence, it.heart, it.stride, it.position).forEach { s ->
+            it.entries.forEach { s ->
                 val v = TextView(requireContext())
                 v.layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,

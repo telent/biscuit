@@ -29,7 +29,8 @@ interface ISensor {
     var state: SensorState
     var timestamp : Instant
 
-    fun startSearch(context: Context, antDeviceNumber: Int = 0 )
+    fun stateReport(): SensorSummary
+    fun startSearch(context: Context, deviceNumber: Int = 0 )
     fun close()
 }
 

@@ -24,7 +24,7 @@ data class Sensors(
         var heart: HeartSensor,
         var position: PositionSensor
 ) {
-    private fun asList(): List<ISensor> {
+    fun asList(): List<ISensor> {
         return listOf(speed, cadence, heart, stride, position)
     }
 
@@ -52,22 +52,11 @@ data class Sensors(
     }
 }
 
-@Parcelize data class SensorSummaries(
-        val speed : SensorSummary,
-        val cadence: SensorSummary,
-        val stride: SensorSummary,
-        val heart : SensorSummary,
-        val position : SensorSummary
-        ) : Parcelable
+@Parcelize data class SensorSummaries(val entries: List<SensorSummary>) : Parcelable
 
 class BiscuitService : Service() {
     private fun reportSensorStatuses() {
-        val payload = SensorSummaries(
-                sensors.speed.stateReport(),
-                sensors.cadence.stateReport(),
-                sensors.stride.stateReport(),
-                sensors.heart.stateReport(),
-                sensors.position.stateReport())
+        val payload = SensorSummaries(sensors.asList().map { s -> s.stateReport() })
 
         Intent(INTENT_NAME).let {
             it.putExtra("sensor_state", payload)
