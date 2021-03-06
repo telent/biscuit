@@ -88,9 +88,9 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , AntSensor("speed
     var isCombinedSensor = false
     val wheelCircumference = 2.105 // 700x25, ref https://cateye.com/data/resources/Tire_size_chart_ENG.pdf
 
-    override fun startSearch(context: Context, antDeviceNumber: Int  ) {
+    override fun startSearch(context: Context, deviceNumber: Int  ) {
         this.close()
-        this.releaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(context, antDeviceNumber, 0, antDeviceNumber > 0,
+        this.releaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(context, deviceNumber, 0, deviceNumber > 0,
                     resultReceiver, stateChangeReceiver)
 
     }
@@ -129,10 +129,10 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("cade
     var cadence = 0.0
     var isCombinedSensor = false
 
-    override fun startSearch(context: Context, antDeviceNumber: Int ) {
+    override fun startSearch(context: Context, deviceNumber: Int ) {
         this.close()
         this.releaseHandle =
-            AntPlusBikeCadencePcc.requestAccess(context, antDeviceNumber, 0, antDeviceNumber > 0,
+            AntPlusBikeCadencePcc.requestAccess(context, deviceNumber, 0, deviceNumber > 0,
                     resultReceiver, stateChangeReceiver)
     }
 
@@ -156,9 +156,9 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("cade
 
 class HeartSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("heart", onStateChange ) {
     var hr : Int = 0
-    override fun startSearch(context: Context, antDeviceNumber: Int ) {
+    override fun startSearch(context: Context, deviceNumber: Int ) {
         this.close()
-        this.releaseHandle =  AntPlusHeartRatePcc.requestAccess(context, antDeviceNumber, 0,
+        this.releaseHandle =  AntPlusHeartRatePcc.requestAccess(context, deviceNumber, 0,
                     resultReceiver, stateChangeReceiver)
 
     }
@@ -186,9 +186,9 @@ class StrideSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("strid
     var distance = 0.0
     var speed = 0.0
 
-    override fun startSearch(context: Context, antDeviceNumber: Int) {
+    override fun startSearch(context: Context, deviceNumber: Int) {
         this.close()
-        this.releaseHandle =  AntPlusStrideSdmPcc.requestAccess(context, antDeviceNumber, 0,
+        this.releaseHandle =  AntPlusStrideSdmPcc.requestAccess(context, deviceNumber, 0,
                 resultReceiver, stateChangeReceiver)
     }
 
@@ -266,7 +266,7 @@ class PositionSensor(onStateChange: (s: Sensor) -> Unit) : ISensor , Sensor("loc
     private lateinit var locationManager: LocationManager
 
     @SuppressLint("MissingPermission") // only called from fns that check the permission
-    override fun startSearch(context: Context, antDeviceNumber: Int) {
+    override fun startSearch(context: Context, deviceNumber: Int) {
         if(state == ISensor.SensorState.FORBIDDEN) return
 
         state = ISensor.SensorState.SEARCHING
