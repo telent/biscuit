@@ -69,10 +69,10 @@ class BiscuitService : Service() {
                 sensors.heart.stateReport(),
                 sensors.position.stateReport())
 
-        Log.d(TAG, "reporting sensors state $payload")
-        val i = Intent(INTENT_NAME)
-        i.putExtra("sensor_state", payload)
-        sendBroadcast(i)
+        Intent(INTENT_NAME).let {
+            it.putExtra("sensor_state", payload)
+            sendBroadcast(it)
+        }
         sensors.reconnectIfCombined(this)
     }
 
@@ -119,14 +119,18 @@ class BiscuitService : Service() {
                 .setAutoCancel(true)
                 .setStyle(NotificationCompat.MediaStyle().setShowActionsInCompactView(0))
                 .build()
-        if (intent.hasExtra("stop_service")) {
-            Log.d(TAG, "stopping")
-            Toast.makeText(this, "Stopped recording", Toast.LENGTH_SHORT).show()
-            shutdown()
-        } else if(intent.hasExtra("refresh_sensors")) {
-            sensors.startSearch(this)
-        } else {
-            startForeground(ONGOING_NOTIFICATION_ID, notification)
+        when {
+            intent.hasExtra("stop_service") -> {
+                Log.d(TAG, "stopping")
+                Toast.makeText(this, "Stopped recording", Toast.LENGTH_SHORT).show()
+                shutdown()
+            }
+            intent.hasExtra("refresh_sensors") -> {
+                sensors.startSearch(this)
+            }
+            else -> {
+                startForeground(ONGOING_NOTIFICATION_ID, notification)
+            }
         }
         return START_NOT_STICKY
     }
