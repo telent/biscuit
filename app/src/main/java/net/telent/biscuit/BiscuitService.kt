@@ -13,11 +13,9 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.media.app.NotificationCompat
 import kotlinx.parcelize.Parcelize
-import java.lang.Thread.sleep
 import java.time.Duration
 import java.time.Instant
 import java.util.*
-import kotlin.concurrent.thread
 
 data class Sensors(
         val speed : SpeedSensor,
@@ -87,9 +85,6 @@ class BiscuitService : Service() {
 
     private var movingTime: Duration = Duration.ZERO
 
-    // for onCreate() failure case
-    private var antInitialized = false
-
     // Binder for activities wishing to communicate with this service
     private val binder: IBinder = LocalBinder()
 
@@ -127,12 +122,9 @@ class BiscuitService : Service() {
         if (intent.hasExtra("stop_service")) {
             Log.d(TAG, "stopping")
             Toast.makeText(this, "Stopped recording", Toast.LENGTH_SHORT).show()
-            stopForeground(true)
-            stopSelf()
-            cleanupAnt()
+            shutdown()
         } else if(intent.hasExtra("refresh_sensors")) {
             sensors.startSearch(this)
-            antInitialized = true
         } else {
             startForeground(ONGOING_NOTIFICATION_ID, notification)
         }
@@ -148,20 +140,26 @@ class BiscuitService : Service() {
         manager.createNotificationChannel(channel)
     }
 
-    private val updaterThread = thread(start = false) {
+    private val updaterThread = object: Thread() {
         var previousUpdateTime = Instant.EPOCH
-        db.sessionDao().start(Instant.now())
-        while (antInitialized) {
-            val latest = sensors.timestamp()
-            if (latest > previousUpdateTime) {
-                if (sensors.speed.speed > 1.0 && previousUpdateTime > Instant.EPOCH) {
-                    val elapsed = Duration.between(previousUpdateTime, latest)
-                    movingTime = movingTime.plus(elapsed)
+        var amRunning = true
+        fun shutdown() {
+            amRunning = false
+        }
+        override fun run() {
+            db.sessionDao().start(Instant.now())
+            while (amRunning) {
+                val latest = sensors.timestamp()
+                if (latest > previousUpdateTime) {
+                    if (sensors.speed.speed > 1.0 && previousUpdateTime > Instant.EPOCH) {
+                        val elapsed = Duration.between(previousUpdateTime, latest)
+                        movingTime = movingTime.plus(elapsed)
+                    }
+                    logUpdate(true)
+                    previousUpdateTime = latest
                 }
-                logUpdate(true)
-                previousUpdateTime = latest
+                sleep(200)
             }
-            sleep(200)
         }
     }
 
@@ -174,27 +172,27 @@ class BiscuitService : Service() {
             sensors.position.state = ISensor.SensorState.FORBIDDEN
         }
         sensors.startSearch(this)
-        antInitialized = true
         updaterThread.start()
     }
 
     override fun onTaskRemoved(rootIntent: Intent) {
         Log.d(TAG, "onTaskRemoved called")
         super.onTaskRemoved(rootIntent)
-        stopForeground(true)
-        stopSelf()
-        cleanupAnt()
+        shutdown()
     }
 
-    private fun cleanupAnt() {
+    private fun shutdown() {
+        stopForeground(true)
+        stopSelf()
         sensors.close()
-        antInitialized = false
+        updaterThread.shutdown()
     }
 
     override fun onDestroy() {
         Log.d(TAG, "Service destroyed")
         super.onDestroy()
-        cleanupAnt()
+        sensors.close()
+        updaterThread.shutdown()
     }
 
     private fun logUpdate(writeDatabase : Boolean) {
