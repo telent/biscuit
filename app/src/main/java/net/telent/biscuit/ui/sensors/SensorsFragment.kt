@@ -1,9 +1,11 @@
 package net.telent.biscuit.ui.sensors
 
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -20,22 +22,22 @@ class SensorsFragment : Fragment() {
     ): View? {
         val root = inflater.inflate(R.layout.fragment_sensors, container, false)
         model.states.observe(viewLifecycleOwner, {
+            val layout : LinearLayout = root.findViewById(R.id.sensor_states)
             fun formatSummary(s: SensorSummary) : String{
                 return "${s.name} ${s.sensorName}: ${s.state}"
             }
-            if(it != null) {
-                val speed: TextView = root.findViewById(R.id.speed_sensor_state)
-                val cadence: TextView = root.findViewById(R.id.cadence_sensor_state)
-                val heart: TextView = root.findViewById(R.id.heart_sensor_state)
-                val stride: TextView = root.findViewById(R.id.stride_sensor_state)
-                speed.text = formatSummary(it.speed)
-                cadence.text = formatSummary(it.cadence)
-                heart.text = formatSummary(it.heart)
-                stride.text = formatSummary(it.stride) + formatSummary(it.position)
-
+            layout.removeAllViews()
+            listOf(it.speed, it.cadence, it.heart, it.stride, it.position).forEach { s ->
+                val v = TextView(requireContext())
+                v.layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1.0f  )
+                v.text = formatSummary(s)
+                v.setTextSize(TypedValue.COMPLEX_UNIT_PT, 12.0F)
+                layout.addView(v)
             }
         })
-
         return root
     }
 }

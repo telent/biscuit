@@ -258,11 +258,11 @@ class StrideSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("strid
     }
 }
 
-class PositionSensor(onStateChange: (s: Sensor) -> Unit) : ISensor , Sensor("gps", onStateChange) {
+class PositionSensor(onStateChange: (s: Sensor) -> Unit) : ISensor , Sensor("location", onStateChange) {
     var latitude: Double? = null
     var longitude: Double? = null
 
-    lateinit var locationManager: LocationManager
+    private lateinit var locationManager: LocationManager
 
     @SuppressLint("MissingPermission") // only called from fns that check the permission
     override fun startSearch(context: Context, antDeviceNumber: Int) {
@@ -277,7 +277,7 @@ class PositionSensor(onStateChange: (s: Sensor) -> Unit) : ISensor , Sensor("gps
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1.0f, locListener)
     }
 
-    val locListener = object : LocationListener {
+    private val locListener = object : LocationListener {
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
 
             Log.d(this.javaClass.name, "status changed $provider $status,$extras")
@@ -293,6 +293,7 @@ class PositionSensor(onStateChange: (s: Sensor) -> Unit) : ISensor , Sensor("gps
 
         override fun onLocationChanged(loc: Location) {
             state = ISensor.SensorState.PRESENT
+            sensorName = loc.provider
             latitude = loc.latitude
             longitude = loc.longitude
             timestamp = Instant.ofEpochMilli(loc.time)
