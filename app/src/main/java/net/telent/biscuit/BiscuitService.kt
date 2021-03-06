@@ -155,7 +155,7 @@ class BiscuitService : Service() {
                         val elapsed = Duration.between(previousUpdateTime, latest)
                         movingTime = movingTime.plus(elapsed)
                     }
-                    logUpdate(true)
+                    logUpdate()
                     previousUpdateTime = latest
                 }
                 sleep(200)
@@ -195,7 +195,7 @@ class BiscuitService : Service() {
         updaterThread.shutdown()
     }
 
-    private fun logUpdate(writeDatabase : Boolean) {
+    private fun logUpdate() {
         val tp = Trackpoint(
                 timestamp = Instant.now(),
                 lng = sensors.position.longitude,
@@ -205,10 +205,8 @@ class BiscuitService : Service() {
                 movingTime = movingTime,
                 wheelRevolutions = (sensors.speed.distance / 2.2).toLong()
         )
-        if(writeDatabase) {
-            db.trackpointDao().addPoint(tp)
-            Log.d(TAG, "recording: $tp")
-        }
+        db.trackpointDao().addPoint(tp)
+        Log.d(TAG, "recording: $tp")
 
         val i = Intent(INTENT_NAME)
         i.putExtra("trackpoint", tp)
