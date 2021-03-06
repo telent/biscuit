@@ -207,7 +207,7 @@ class BiscuitService : Service() {
                 speed = sensors.speed.speed.toFloat(),
                 cadence = sensors.cadence.cadence.toFloat(),
                 movingTime = movingTime,
-                wheelRevolutions = (sensors.speed.distance / 2.2).toLong()
+                distance = sensors.speed.distance.toFloat()
         )
         db.trackpointDao().addPoint(tp)
         Log.d(TAG, "recording: $tp")

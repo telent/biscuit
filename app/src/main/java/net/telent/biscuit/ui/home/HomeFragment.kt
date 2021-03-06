@@ -23,7 +23,7 @@ class HomeFragment : Fragment() {
     ): View? {
         val root = inflater.inflate(R.layout.fragment_home, container, false)
         var lastMovingTime = EPOCH
-        model.trackpoint.observe(viewLifecycleOwner, { (timestamp, _, _, speed, cadence, wheelRevolutions, movingTime) ->
+        model.trackpoint.observe(viewLifecycleOwner, { (timestamp, _, _, speed, cadence, _, movingTime, distance) ->
             val now = LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault())
             if (speed > 0) lastMovingTime = timestamp
             val showMovingTime = (lastMovingTime > timestamp.minusSeconds(30))
@@ -39,12 +39,11 @@ class HomeFragment : Fragment() {
             if (cadence >= 0.0f)
                 withView(R.id.CadenceText) { it.text = String.format("%3.1f rpm", cadence) }
             withView(R.id.TimeText) {v ->v.text = timestring }
-            val distanceM = wheelRevolutions * 2.070
             withView(R.id.DistanceText) {
-                if (distanceM < 5000)
-                    it.text = String.format("%.01f m", distanceM)
+                if (distance < 5000.0f)
+                    it.text = String.format("%.01f m", distance)
                 else
-                    it.text = String.format("%.01f km", distanceM / 1000)
+                    it.text = String.format("%.01f km", distance / 1000)
             }
         })
         return root
