@@ -5,7 +5,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".ui.track.TrackFragment">
-
     <org.osmdroid.views.MapView android:id="@+id/map"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -16,4 +15,16 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_marginRight="25dp"
+        android:layout_marginBottom="80dp"
+        android:drawableTop="@drawable/ic_layers_48"
+        android:text=""
+        android:textSize="24dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintRight_toRightOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
