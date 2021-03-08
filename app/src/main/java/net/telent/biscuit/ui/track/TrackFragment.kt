@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import net.telent.biscuit.BiscuitDatabase
 import net.telent.biscuit.R
+import net.telent.biscuit.Session
 import net.telent.biscuit.Trackpoint
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -90,11 +91,14 @@ class TrackFragment : Fragment() {
     }
 
     override fun onOptionsItemSelected(item : MenuItem): Boolean {
+        fun textFor(s: Session): String {
+            return "${s.start} ${s.duration()}"
+        }
         return when (item.itemId) {
             R.id.action_tracks -> {
                 val trackPickerView =  layoutInflater.inflate(R.layout.track_picker, null)
                 val layout = trackPickerView.findViewById<LinearLayout>(R.id.track_picker)
-                val tracks = db.sessionDao().getAll()
+                val tracks = db.sessionDao().getClosed()
                 tracks.observe(viewLifecycleOwner) {
                     layout.removeAllViews()
                     it.forEach { s ->
@@ -103,7 +107,10 @@ class TrackFragment : Fragment() {
                                 LinearLayout.LayoutParams.MATCH_PARENT,
                                 LinearLayout.LayoutParams.WRAP_CONTENT,
                                 1.0f  )
-                        v.text = s.start.toString()
+                        v.text = textFor(s)
+                        v.setOnClickListener({ v ->
+                            Log.d("hey", "clicked on ${s.start}")
+                        })
                         v.setTextSize(TypedValue.COMPLEX_UNIT_PT, 9.0F)
                         Log.d("tag", "$v ${s.start}")
                         layout.addView(v)

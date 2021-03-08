@@ -12,6 +12,9 @@ interface SessionDao {
     @Query("SELECT * from session")
     fun getAll() : LiveData<List<Session>>
 
+    @Query("SELECT * from session where e is not null")
+    fun getClosed() : LiveData<List<Session>>
+
     @Query("select * from session where e is null")
     fun getOpen(): Session
 
