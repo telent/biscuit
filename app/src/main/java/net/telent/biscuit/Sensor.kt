@@ -94,7 +94,6 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , AntSensor("speed
         startRevs = null
         this.releaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(context, deviceNumber, 0, deviceNumber > 0,
                     resultReceiver, stateChangeReceiver)
-
     }
 
     private val resultReceiver: AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> = AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikeSpeedDistancePcc> { pcc, resultCode, initialDeviceState ->
@@ -108,6 +107,7 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , AntSensor("speed
         if (initialDeviceState != null)
             this@SpeedSensor.state = stateFromAnt(initialDeviceState)
     }
+
     private fun subscribeToEvents(pcc : AntPlusBikeSpeedDistancePcc) {
         pcc.subscribeCalculatedSpeedEvent(object : AntPlusBikeSpeedDistancePcc.CalculatedSpeedReceiver(BigDecimal(wheelCircumference)) {
             override fun onNewCalculatedSpeed(estTimestamp: Long,
@@ -150,6 +150,7 @@ class CadenceSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("cade
         if (initialDeviceState != null)
             this@CadenceSensor.state = stateFromAnt(initialDeviceState)
     }
+
     private fun subscribeToEvents(pcc: AntPlusBikeCadencePcc) {
         pcc.subscribeCalculatedCadenceEvent { estTimestamp, eventFlags, calculatedCadence -> //Log.v(TAG, "Cadence:" + calculatedCadence.intValue());
             cadence = calculatedCadence.toDouble()
@@ -164,7 +165,6 @@ class HeartSensor(onStateChange: (s:Sensor)-> Unit) : ISensor, AntSensor("heart"
         this.close()
         this.releaseHandle =  AntPlusHeartRatePcc.requestAccess(context, deviceNumber, 0,
                     resultReceiver, stateChangeReceiver)
-
     }
 
     private val resultReceiver : AntPluginPcc.IPluginAccessResultReceiver<AntPlusHeartRatePcc> = AntPluginPcc.IPluginAccessResultReceiver<AntPlusHeartRatePcc> { result, resultCode, initialDeviceState ->

@@ -13,7 +13,6 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import net.telent.biscuit.BiscuitDatabase
 import net.telent.biscuit.R
-import net.telent.biscuit.Session
 import net.telent.biscuit.Trackpoint
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
