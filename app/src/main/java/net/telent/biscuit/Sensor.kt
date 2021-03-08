@@ -85,11 +85,13 @@ data class SensorSummary(
 class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , AntSensor("speed", onStateChange )  {
     var speed = 0.0
     var distance = 0.0
+    var startRevs : Long? = null
     var isCombinedSensor = false
     val wheelCircumference = 2.105 // 700x25, ref https://cateye.com/data/resources/Tire_size_chart_ENG.pdf
 
     override fun startSearch(context: Context, deviceNumber: Int  ) {
         this.close()
+        startRevs = null
         this.releaseHandle = AntPlusBikeSpeedDistancePcc.requestAccess(context, deviceNumber, 0, deviceNumber > 0,
                     resultReceiver, stateChangeReceiver)
 
@@ -119,7 +121,9 @@ class SpeedSensor(onStateChange: (s:Sensor)-> Unit)  :ISensor , AntSensor("speed
             //eventFlags - Informational flags about the event.
             //timestampOfLastEvent - Sensor reported time counter value of last distance or speed computation (up to 1/200s accuracy). Units: s. Rollover: Every ~46 quadrillion s (~1.5 billion years).
             //cumulativeRevolutions - Total number of revolutions since the sensor was first connected. Note: If the subscriber is not the first PCC connected to the device the accumulation will probably already be at a value greater than 0 and the subscriber should save the first received value as a relative zero for itself. Units: revolutions. Rollover: Every ~9 quintillion revolutions.
-            distance = cumulativeRevolutions.toDouble() * wheelCircumference
+            if(startRevs == null)
+                startRevs = cumulativeRevolutions
+            distance = (cumulativeRevolutions - startRevs!!).toDouble() * wheelCircumference
             timestamp = Instant.now()
         }
     }
