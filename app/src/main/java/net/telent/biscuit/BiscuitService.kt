@@ -140,6 +140,9 @@ class BiscuitService : Service() {
             amRunning = false
         }
         override fun run() {
+            var previousLatitude : Double? = null
+            var previousLongitude : Double? = null
+
             db.sessionDao().start(Instant.now())
             while (amRunning) {
                 val latest = sensors.timestamp()
@@ -148,8 +151,16 @@ class BiscuitService : Service() {
                         val elapsed = Duration.between(previousUpdateTime, latest)
                         movingTime = movingTime.plus(elapsed)
                     }
-                    logUpdate()
+                    if (sensors.speed.speed > 0.0 ||
+                            sensors.position.latitude != previousLatitude ||
+                            sensors.position.longitude != previousLongitude) {
+                        Log.d("ggg",
+                                "lat ${sensors.position.latitude} $previousLatitude lng ${sensors.position.longitude} $previousLongitude")
+                        logUpdate()
+                    }
                     previousUpdateTime = latest
+                    previousLatitude = sensors.position.latitude
+                    previousLongitude = sensors.position.longitude
                 }
                 sleep(200)
             }
