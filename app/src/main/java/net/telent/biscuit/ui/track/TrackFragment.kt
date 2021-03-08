@@ -4,12 +4,14 @@ import android.graphics.Canvas
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import android.util.TypedValue
+import android.view.*
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import net.telent.biscuit.BiscuitDatabase
 import net.telent.biscuit.R
 import net.telent.biscuit.Trackpoint
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -25,6 +27,11 @@ class TrackFragment : Fragment() {
     private val model: TrackViewModel by activityViewModels()
     private var previousLat : Double = 0.0
     private var previousLng : Double = 0.0
+
+    override fun onCreate(savedInstanceState : Bundle?) {
+        super.onCreate(savedInstanceState)
+        setHasOptionsMenu(true)
+    }
 
     override fun onCreateView(
             inflater: LayoutInflater,
@@ -72,6 +79,42 @@ class TrackFragment : Fragment() {
             map.overlayManager[0] = line
         })
         return root
+    }
+
+    override fun onCreateOptionsMenu(menu : Menu, inflater : MenuInflater) {
+        inflater.inflate(R.menu.track_action_menu, menu)
+    }
+
+    private val db by lazy {
+        BiscuitDatabase.getInstance(requireActivity())
+    }
+
+    override fun onOptionsItemSelected(item : MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_tracks -> {
+                val trackPickerView =  layoutInflater.inflate(R.layout.track_picker, null)
+                val layout = trackPickerView.findViewById<LinearLayout>(R.id.track_picker)
+                val tracks = db.sessionDao().getAll()
+                tracks.observe(viewLifecycleOwner) {
+                    layout.removeAllViews()
+                    it.forEach { s ->
+                        val v = TextView(requireContext())
+                        v.layoutParams = LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                1.0f  )
+                        v.text = s.start.toString()
+                        v.setTextSize(TypedValue.COMPLEX_UNIT_PT, 9.0F)
+                        Log.d("tag", "$v ${s.start}")
+                        layout.addView(v)
+                    }
+                }
+                Log.d("track", "chose ${item.itemId}")
+                TrackPicker(trackPickerView).show(childFragmentManager, TrackPicker.TAG )
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     private fun bearingTo(tp: Trackpoint): Float? {
